@@ -1,0 +1,88 @@
+import XCTest
+@testable import KeyboardCore
+
+final class CompositionGuardTests: XCTestCase {
+    private func stale(_ g: CompositionGuard, composing: String = "가", before: String?, edit: Double = 0, now: Double) -> Bool {
+        g.isStale(composing: composing, before: before, lastEditTime: edit, now: now)
+    }
+
+    func testNilContextKeepsComposition() {
+        XCTAssertFalse(stale(CompositionGuard(), before: nil, now: 100))
+    }
+
+    func testContextEndingWithComposingIsNotStale() {
+        XCTAssertFalse(stale(CompositionGuard(), before: "안녕 가", now: 100))
+    }
+
+    func testMismatchAfterGraceIsStale() {
+        XCTAssertTrue(stale(CompositionGuard(), before: "안녕 나", edit: 0, now: 0.5))
+    }
+
+    func testGraceBoundary() {
+        var g = CompositionGuard()
+        g.note(composing: "", at: 10) // 빈 기록이 있어 유예 안에서는 관대
+        // now - lastEdit < 0.3 이면 유예 안
+        XCTAssertFalse(stale(g, before: "다른", edit: 10, now: 10.299))
+        // 정확히 0.3 은 유예 밖(<) → stale
+        XCTAssertTrue(stale(g, before: "다른", edit: 10, now: 10.3))
+    }
+
+    func testWithinGraceMatchingRecentRecordIsNotStale() {
+        var g = CompositionGuard()
+        g.note(composing: "ㅎ", at: 10)
+        g.note(composing: "하", at: 10.1)
+        // 호스트 문맥이 한발 늦어 이전 조합 "ㅎ" 로 끝남
+        XCTAssertFalse(stale(g, composing: "한", before: "안녕 ㅎ", edit: 10.1, now: 10.2))
+    }
+
+    func testWithinGraceNoMatchingRecordIsStale() {
+        var g = CompositionGuard()
+        g.note(composing: "ㅎ", at: 10)
+        XCTAssertTrue(stale(g, composing: "하", before: "다른 글", edit: 10, now: 10.1))
+    }
+
+    func testRecordWindowInclusiveAndExclusive() {
+        var g = CompositionGuard()
+        g.note(composing: "ㅎ", at: 0)
+        // 마지막 편집이 늦어 유예 안이어도 기록이 창 밖이면 무시 (0.6 은 포함, 0.7 은 제외)
+        XCTAssertFalse(g.isStale(composing: "하", before: "ㅎ", lastEditTime: 0.5, now: 0.6))
+        XCTAssertTrue(g.isStale(composing: "하", before: "ㅎ", lastEditTime: 0.7, now: 0.75))
+    }
+
+    func testNotePrunesRecordsOlderThanWindow() {
+        var g = CompositionGuard()
+        g.note(composing: "ㅎ", at: 0)
+        g.note(composing: "하", at: 0.6)   // 0.6 - 0 = 0.6, > 0.6 아님 → 유지
+        XCTAssertEqual(g.records.count, 2)
+        g.note(composing: "한", at: 0.7)   // 첫 기록 0.7 > 0.6 → 제거
+        XCTAssertEqual(g.records.map(\.text), ["하", "한"])
+    }
+
+    func testEmptyRecordMeansJustStartedSoNotStaleWithinGrace() {
+        var g = CompositionGuard()
+        g.note(composing: "", at: 5)
+        XCTAssertFalse(stale(g, composing: "ㅎ", before: "아무 문맥", edit: 5, now: 5.1))
+    }
+
+    func testEmptyRecordOutsideWindowIsIgnored() {
+        var g = CompositionGuard()
+        g.note(composing: "", at: 5)
+        XCTAssertTrue(stale(g, composing: "ㅎ", before: "아무 문맥", edit: 5.65, now: 5.7))
+    }
+
+    func testEmptyContextWithComposingIsStaleAfterGrace() {
+        XCTAssertTrue(stale(CompositionGuard(), before: "", edit: 0, now: 1))
+    }
+
+    func testEmptyContextWithinGraceWithoutRecordsIsStale() {
+        XCTAssertTrue(stale(CompositionGuard(), before: "", edit: 0, now: 0.1))
+    }
+
+    func testResetClearsRecords() {
+        var g = CompositionGuard()
+        g.note(composing: "", at: 0)
+        g.reset()
+        XCTAssertTrue(g.records.isEmpty)
+        XCTAssertTrue(stale(g, before: "다른", edit: 0, now: 0.1))
+    }
+}
