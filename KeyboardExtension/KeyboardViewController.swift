@@ -83,6 +83,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopDeleteRepeat()
+        contextRecheck?.cancel()
+        touchView.resetTouches()
     }
 
     /// 사용자가 커서를 옮기거나 앱이 글을 바꾸면 조합을 확정한다.
@@ -208,19 +210,30 @@ final class KeyboardViewController: UIInputViewController {
 
     private func keyDown(_ key: KeyButton) {
         player.play(.press, key.soundKind)
-        if key.spec.action == .backspace {
+        switch key.spec.action {
+        case .backspace:
             deleteBackward()
             startDeleteRepeat()
-        } else {
+        case .layer:
+            // 레이어 전환은 뗄 때 한다. 누르는 순간 키를 다시 만들면 눌림 표시가 옛 키에 남고,
+            // 같은 이벤트에 함께 들어온 글자가 어느 레이어로 찍힐지 정해지지 않는다
+            stopDeleteRepeat()
+        default:
+            // 다른 키를 누르면 백스페이스 반복을 끊는다. 안 끊으면 방금 친 글자를 반복 삭제가 지운다
+            stopDeleteRepeat()
             handle(key.spec.action)
         }
     }
 
     private func keyUp(_ key: KeyButton) {
         player.play(.release, key.soundKind)
-        // 롤오버 중 다른 키를 뗄 때 백스페이스 반복을 끊지 않는다
-        if key.spec.action == .backspace {
+        switch key.spec.action {
+        case .backspace:
             stopDeleteRepeat()
+        case .layer:
+            handle(key.spec.action)
+        default:
+            break
         }
     }
 

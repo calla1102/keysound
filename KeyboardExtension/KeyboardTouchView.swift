@@ -56,6 +56,12 @@ final class KeyboardTouchView: UIView {
         finish(touches)
     }
 
+    /// 키보드가 사라질 때 끝나지 않은 터치를 소리 없이 정리한다(시스템이 cancel 을 안 보낼 수 있다).
+    func resetTouches() {
+        activeTouches.values.forEach { $0.isHighlighted = false }
+        activeTouches = [:]
+    }
+
     private func finish(_ touches: Set<UITouch>) {
         for touch in touches.sorted(by: { $0.timestamp < $1.timestamp }) {
             guard let key = activeTouches.removeValue(forKey: touch) else { continue }
