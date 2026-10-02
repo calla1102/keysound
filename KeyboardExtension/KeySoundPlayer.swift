@@ -1,106 +1,72 @@
-import AVFoundation
 import AudioToolbox
 
-/// 실기기 검증용 재생기. 세 경로를 각각 시도해 어느 것이 Full Access 없이 동작하는지 기록한다.
-///  - avPlayer: AVAudioSession(.ambient, mixWithOthers) + AVAudioPlayer (글쇠 방식)
-///  - systemSound: AudioServicesPlaySystemSound 로 커스텀 wav 재생
-///  - inputClick: UIDevice.playInputClick (시스템 기본 클릭, 항상 가능해야 함)
+/// 타건음 재생기. 전체 접근 없이 동작하는 AudioServices 시스템 사운드만 쓴다.
+/// (2026-10-02 실기기 검증: AVAudioPlayer 는 전체 접근 OFF 에서 play() 실패)
+/// 제약: 볼륨은 시스템 볼륨을 따르고, 무음 스위치가 켜지면 나지 않는다.
 final class KeySoundPlayer {
-    enum Mode: String, CaseIterable {
-        case avPlayer = "AVAudioPlayer"
-        case systemSound = "AudioServices"
+    enum Phase: String {
+        case press, release
     }
 
-    /// init 단계 로그(세션·플레이어 준비 결과). 화면에 항상 유지된다.
-    private(set) var setupLog: [String] = []
-    /// 재생 호출 로그(최근 것만).
-    private(set) var log: [String] = []
-    private var setupDone = false
-
-    private var player: AVAudioPlayer?
-    private var systemSoundID: SystemSoundID = 0
-    private var sessionReady = false
-
-    private var soundURL: URL? {
-        Bundle.main.url(forResource: "test_click", withExtension: "wav")
+    enum Kind {
+        /// kbsim 은 키보드 줄(0~4)마다 음높이가 다른 녹음을 쓴다.
+        case generic(row: Int)
+        case space, backspace, enter
     }
 
-    init() {
-        prepareSession()
-        preparePlayer()
-        prepareSystemSound()
-        setupDone = true
+    private(set) var sound: SwitchSound?
+    private var ids: [String: SystemSoundID] = [:]
+
+    deinit {
+        disposeAll()
     }
 
-    private func prepareSession() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.ambient, options: [.mixWithOthers])
-            try session.setActive(true)
-            sessionReady = true
-            record("session OK")
-        } catch {
-            record("session FAIL: \(describe(error))")
-        }
-    }
+    /// 선택된 타건음의 파일을 미리 SystemSoundID 로 만들어 둔다. 같은 소리면 아무것도 하지 않는다.
+    func load(_ sound: SwitchSound) {
+        guard sound != self.sound else { return }
+        disposeAll()
+        self.sound = sound
 
-    private func preparePlayer() {
-        guard let url = soundURL else {
-            record("wav not found in bundle")
-            return
-        }
-        do {
-            let p = try AVAudioPlayer(contentsOf: url)
-            p.volume = 1
-            p.prepareToPlay()
-            player = p
-            record("player prepared")
-        } catch {
-            record("player FAIL: \(describe(error))")
-        }
-    }
-
-    private func prepareSystemSound() {
-        guard let url = soundURL else { return }
-        let status = AudioServicesCreateSystemSoundID(url as CFURL, &systemSoundID)
-        record(status == kAudioServicesNoError ? "systemSound prepared" : "systemSound create FAIL \(status)")
-    }
-
-    /// 반환값: 호출이 성공했는지(실제 소리가 들렸는지는 사람이 확인).
-    @discardableResult
-    func play(_ mode: Mode) -> Bool {
-        switch mode {
-        case .avPlayer:
-            guard let player else {
-                record("play av: no player")
-                return false
+        let kinds: [Kind] = (0...4).map { .generic(row: $0) } + [.space, .backspace, .enter]
+        for phase in [Phase.press, .release] {
+            for kind in kinds {
+                guard let name = Self.fileName(sound, phase, kind), ids[name] == nil else { continue }
+                guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else { continue }
+                var id: SystemSoundID = 0
+                if AudioServicesCreateSystemSoundID(url as CFURL, &id) == kAudioServicesNoError {
+                    ids[name] = id
+                }
             }
-            player.currentTime = 0
-            let ok = player.play()
-            record("play av: \(ok ? "called OK" : "play() returned false")")
-            return ok
-        case .systemSound:
-            guard systemSoundID != 0 else {
-                record("play sys: no sound id")
-                return false
+        }
+    }
+
+    func play(_ phase: Phase, _ kind: Kind) {
+        guard let sound, let name = Self.fileName(sound, phase, kind), let id = ids[name] else { return }
+        AudioServicesPlaySystemSound(id)
+    }
+
+    private func disposeAll() {
+        ids.values.forEach { AudioServicesDisposeSystemSoundID($0) }
+        ids = [:]
+    }
+
+    /// 번들 안 wav 파일 이름(확장자 제외). nil 이면 그 동작엔 소리가 없다.
+    private static func fileName(_ sound: SwitchSound, _ phase: Phase, _ kind: Kind) -> String? {
+        switch sound {
+        case .off:
+            return nil
+        case .click:
+            return phase == .press ? "click_press" : nil
+        case .brown:
+            let suffix: String
+            switch kind {
+            case .generic(let row):
+                suffix = phase == .press ? "generic_r\(min(max(row, 0), 4))" : "generic"
+            case .space: suffix = "space"
+            case .backspace: suffix = "backspace"
+            case .enter: suffix = "enter"
             }
-            AudioServicesPlaySystemSound(systemSoundID)
-            record("play sys: called")
-            return true
+            return "brown_\(phase.rawValue)_\(suffix)"
         }
-    }
-
-    private func record(_ line: String) {
-        if !setupDone {
-            setupLog.append(line)
-            return
-        }
-        log.append(line)
-        if log.count > 4 { log.removeFirst() }
-    }
-
-    private func describe(_ error: Error) -> String {
-        let e = error as NSError
-        return "\(e.domain) \(e.code)"
     }
 }

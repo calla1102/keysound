@@ -1,7 +1,7 @@
 import Foundation
 
 /// 메인 앱과 키보드 익스텐션이 공유하는 설정 저장소.
-/// 익스텐션은 Full Access가 켜져 있을 때만 이 값을 읽을 수 있다.
+/// 2026-10-02 실기기(iOS 27) 검증: 전체 접근 OFF 에서도 익스텐션이 이 값을 읽는다.
 enum AppGroup {
     static let identifier = "group.com.minnnj.keysound"
 
@@ -10,7 +10,11 @@ enum AppGroup {
     }
 
     enum Key {
-        /// 사용자가 선택한 축(스위치) 식별자
-        static let selectedSwitch = "selectedSwitch"
+        /// 사용자가 선택한 타건음(`SwitchSound.rawValue`)
+        static let selectedSound = "selectedSound"
+    }
+
+    static var selectedSound: SwitchSound {
+        defaults?.string(forKey: Key.selectedSound).flatMap(SwitchSound.init(rawValue:)) ?? .default
     }
 }

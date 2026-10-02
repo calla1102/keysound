@@ -18,6 +18,10 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_STRICT_CONCURRENCY: minimal
 
+packages:
+  HangulEngine:
+    path: Packages/HangulEngine
+
 targets:
   Keysound:
     type: application
@@ -69,7 +73,7 @@ targets:
             IsASCIICapable: false
             PrefersRightToLeft: false
             PrimaryLanguage: ko-KR
-            RequestsOpenAccess: true
+            RequestsOpenAccess: false
     entitlements:
       path: KeyboardExtension/KeysoundKeyboard.entitlements
       properties:
@@ -81,3 +85,5 @@ targets:
         PRODUCT_NAME: KeysoundKeyboard
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: HangulEngine

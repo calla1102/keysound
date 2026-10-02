@@ -1,32 +1,53 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var sharedValue: String = AppGroup.defaults?.string(forKey: AppGroup.Key.selectedSwitch) ?? "(없음)"
+    /// 키보드 익스텐션이 App Group 에서 읽는 값. 키보드를 다시 열 때 반영된다.
+    @AppStorage(AppGroup.Key.selectedSound, store: AppGroup.defaults)
+    private var selectedSound: SwitchSound = .default
+
+    @State private var testText = ""
 
     var body: some View {
         NavigationStack {
             List {
-                Section("시작하기") {
-                    Label("설정 > 일반 > 키보드 > 키보드에서 Keysound를 추가하세요.", systemImage: "keyboard")
-                    Label("「전체 접근 허용」을 켜면 선택한 축 소리가 키보드에서 재생됩니다.", systemImage: "speaker.wave.2")
+                Section {
+                    Picker("타건음", selection: $selectedSound) {
+                        ForEach(SwitchSound.allCases) { sound in
+                            VStack(alignment: .leading) {
+                                Text(sound.displayName)
+                                Text(sound.summary)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .tag(sound)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    Text("타건음")
+                } footer: {
+                    Text("키보드를 닫았다 다시 열면 바뀐 소리가 적용됩니다. 무음 모드에서는 소리가 나지 않습니다.")
                 }
 
-                Section("App Group 검증") {
-                    LabeledContent("저장된 값", value: sharedValue)
-                    Button("값 쓰기: blue") { write("blue") }
-                    Button("값 쓰기: red") { write("red") }
-                    Text("키보드 상단 'AppGroup:' 표시가 이 값과 같아지는지 확인하세요.")
+                Section("써 보기") {
+                    TextField("여기를 눌러 Keysound 키보드로 입력해 보세요", text: $testText, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+
+                Section("시작하기") {
+                    Label("설정 > 일반 > 키보드 > 키보드 > 새로운 키보드 추가에서 Keysound를 추가하세요.", systemImage: "keyboard")
+                    Label("「전체 접근 허용」은 필요 없습니다. 입력한 내용은 어디로도 전송되지 않습니다.", systemImage: "lock")
+                }
+
+                Section("출처") {
+                    Text("갈축 소리: kbsim (github.com/tplai/kbsim), MIT License, © Thomas Lai")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Keysound")
         }
-    }
-
-    private func write(_ value: String) {
-        AppGroup.defaults?.set(value, forKey: AppGroup.Key.selectedSwitch)
-        sharedValue = AppGroup.defaults?.string(forKey: AppGroup.Key.selectedSwitch) ?? "(없음)"
     }
 }
 
