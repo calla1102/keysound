@@ -46,10 +46,9 @@ final class KeyboardViewController: UIInputViewController {
     /// 우리 마지막 편집 시각. 호스트 앱은 문맥(documentContext)을 한발 늦게 갱신하므로 이 직후의 불일치는 믿지 않는다.
     private var lastEditTime: CFTimeInterval = 0
     private var contextRecheck: DispatchWorkItem?
-    private static let contextGrace: CFTimeInterval = 0.3
-    /// 최근 우리가 만든 조합 글자와 시각(오래된 순). 유예 중 호스트 문맥은 이 중 하나로 끝나는 옛 값일 수 있다.
-    /// 빈 문자열은 「조합이 없던 상태」라 그 앞 문맥을 알 수 없다는 뜻이다.
-    private var recentComposings: [(text: String, at: CFTimeInterval)] = []
+    private static let contextGrace: CFTimeInterval = CompositionGuard.grace
+    /// 한글 조합 확정 판정(최근 조합 기록 보유). 판정 규칙·경계는 KeyboardCore 의 CompositionGuard 참고.
+    private var compositionGuard = CompositionGuard()
 
     // MARK: 스페이스 길게 누르기(커서 이동)
     //
@@ -160,6 +159,8 @@ final class KeyboardViewController: UIInputViewController {
         contextRecheck?.cancel()
         // 누른 스페이스는 떼기 전에 사라져도 입력으로 친다(터치 cancel 도 같다). 보류 전 keyDown 즉시 입력과 같은 결과다
         flushPendingSpace()
+        // flush 의 조합 확정이 남긴 기록까지 비운다
+        compositionGuard.reset()
         endCursorMode()
         cancelLineMoves()
         ignoredTouches = []
@@ -185,26 +186,19 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func noteComposingState() {
-        let now = CACurrentMediaTime()
-        recentComposings.append((automaton.composing, now))
-        recentComposings.removeAll { now - $0.at > Self.contextGrace * 2 }
+        compositionGuard.note(composing: automaton.composing, at: CACurrentMediaTime())
     }
 
-    /// 조합 중인 글자가 문맥과 어긋났는지(커서가 옮겨졌거나 앱이 글을 바꿨는지).
-    /// 빠르게 치는 중엔 호스트 문맥이 한발 늦어 옛 조합 글자로 끝날 수 있으므로,
-    /// 마지막 편집 직후(유예 중)엔 최근 조합 글자 중 하나로 끝나기만 해도 정상으로 본다.
-    /// 오탐(정상 타이핑 중 조합이 끊김)이 미탐(드문 오삭제)보다 나쁘므로 유예 중엔 관대하게 판정한다.
+    /// 조합 중인 글자가 문맥과 어긋났는지. 판정 규칙은 `CompositionGuard.isStale` 참고
+    /// (문맥 nil 이면 유지, 마지막 편집 직후 유예 중엔 불일치를 믿지 않아 stale 아님으로 본다).
     private func compositionIsStale() -> Bool {
         guard automaton.isComposing else { return false }
-        // 문맥을 못 읽는 앱(nil)에선 조합을 유지한다
-        guard let before = textDocumentProxy.documentContextBeforeInput else { return false }
-        if before.hasSuffix(automaton.composing) { return false }
-        let now = CACurrentMediaTime()
-        if now - lastEditTime < Self.contextGrace {
-            // 조합이 방금 시작됐으면(빈 상태가 기록에 있으면) 옛 문맥을 알 수 없으므로 믿지 않는다
-            return !recentComposings.contains { now - $0.at <= Self.contextGrace * 2 && ($0.text.isEmpty || before.hasSuffix($0.text)) }
-        }
-        return true
+        return compositionGuard.isStale(
+            composing: automaton.composing,
+            before: textDocumentProxy.documentContextBeforeInput,
+            lastEditTime: lastEditTime,
+            now: CACurrentMediaTime()
+        )
     }
 
     private func validateComposition() {
