@@ -15,7 +15,44 @@ CMD=$(printf '%s' "$INPUT" | python3 -c \
 # 명령 위치(줄 시작 또는 ; && | ( 뒤, env 변수 접두어 허용)의 gh pr create 만 본다.
 printf '%s' "$CMD" | grep -Eq '(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+create' || exit 0
 
-printf '%s' "$CMD" | grep -q 'KS_PR_OK=1' && exit 0
+if printf '%s' "$CMD" | grep -q 'KS_PR_OK=1'; then
+  # 작업 1개 = 이슈 1 + 브랜치 1 + PR 1. 본문(--body-file 또는 --body)에 `Closes #N` 이 있어야 통과.
+  export CMD
+  python3 <<'PYEOF'
+import json, os, re, shlex, sys
+cmd = os.environ.get('CMD', '')
+try:
+    args = shlex.split(cmd)
+except ValueError:
+    args = cmd.split()
+body = ''
+for i, a in enumerate(args):
+    if a in ('--body-file', '-F') and i + 1 < len(args):
+        try:
+            body += open(os.path.expanduser(args[i + 1]), encoding='utf-8').read()
+        except OSError:
+            pass
+    elif a.startswith('--body-file='):
+        try:
+            body += open(os.path.expanduser(a.split('=', 1)[1]), encoding='utf-8').read()
+        except OSError:
+            pass
+    elif a in ('--body', '-b') and i + 1 < len(args):
+        body += args[i + 1]
+    elif a.startswith('--body='):
+        body += a.split('=', 1)[1]
+if re.search(r'(?i)\b(closes|fixes|resolves)\s+#\d+', body):
+    sys.exit(0)
+print(json.dumps({
+    'decision': 'block',
+    'reason': (
+        'PR 본문에 `Closes #<이슈번호>` 가 없습니다. 작업 1개 = 이슈 1 + 브랜치 1 + PR 1 규칙입니다. '
+        '브랜치 이름 `<type>/<N>-<이름>` 의 번호나 `/pr` 1-1단계에서 정한 이슈로 본문 맨 끝에 `Closes #N` 을 넣으세요.'
+    )
+}, ensure_ascii=False))
+PYEOF
+  exit 0
+fi
 
 python3 <<'PYEOF'
 import json
