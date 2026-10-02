@@ -1,143 +1,245 @@
+import HangulEngine
 import UIKit
 
-/// Full Access ON/OFF 각각에서 아래 네 가지를 확인하는 검증용 키보드.
-///  1. App Group UserDefaults 읽기(메인 앱이 쓴 값이 보이는지)
-///  2. AVAudioPlayer 커스텀 wav 재생 — 2026-10-02 실측: OFF 에서 play() false
-///  3. AudioServices 커스텀 wav 재생 — 2026-10-02 실측: OFF 에서도 들림
-///  4. 익스텐션 자체 UserDefaults.standard 쓰기/읽기(키보드 안에서 고른 설정이 유지되는지)
-final class KeyboardViewController: UIInputViewController, UIInputViewAudioFeedback {
-    var enableInputClicksWhenVisible: Bool { true }
-
+/// 두벌식 한글 키보드. 키를 누를 때 press 음, 뗄 때 release 음을 낸다.
+/// 조합 중 글자는 marked text 없이 「지우고 다시 쓰기」로 갱신한다.
+final class KeyboardViewController: UIInputViewController {
     private let player = KeySoundPlayer()
-    private let statusLabel = UILabel()
-    private let logLabel = UILabel()
-    private var mode: KeySoundPlayer.Mode = .avPlayer
+    private var automaton = HangulAutomaton()
+
+    private var currentLayer: KeyboardLayer = .hangul
+    private var showsGlobe = true
+    private var shiftOn = false
+
+    private let rowsStack = UIStackView()
+    private var keyButtons: [KeyButton] = []
+
+    /// 백스페이스 길게 누르기 반복
+    private var deleteTimer: Timer?
+    /// 우리 편집 도중 textDidChange 가 불려도 조합을 끊지 않기 위한 표시
+    private var isApplyingEdit = false
+
+    private enum Metric {
+        static let rowHeight: CGFloat = 42
+        static let rowSpacing: CGFloat = 10
+        static let keySpacing: CGFloat = 6
+    }
+
+    // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupViews()
-        refreshStatus()
+        view.backgroundColor = Palette.background
+
+        rowsStack.axis = .vertical
+        rowsStack.spacing = Metric.rowSpacing
+        rowsStack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(rowsStack)
+        NSLayoutConstraint.activate([
+            rowsStack.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
+            rowsStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 3),
+            rowsStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -3),
+            rowsStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4),
+        ])
+        rebuildKeys()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        refreshStatus()
+        // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
+        player.load(AppGroup.selectedSound)
+        automaton.commit()
+        if showsGlobe != needsInputModeSwitchKey {
+            showsGlobe = needsInputModeSwitchKey
+            rebuildKeys()
+        }
     }
 
-    // MARK: - UI
-
-    private func setupViews() {
-        view.backgroundColor = UIColor.systemGray5
-
-        statusLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        statusLabel.numberOfLines = 0
-        statusLabel.textAlignment = .center
-
-        logLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-        logLabel.numberOfLines = 0
-        logLabel.textColor = .secondaryLabel
-
-        let modeControl = UISegmentedControl(items: KeySoundPlayer.Mode.allCases.map(\.rawValue))
-        modeControl.selectedSegmentIndex = 0
-        modeControl.addTarget(self, action: #selector(modeChanged(_:)), for: .valueChanged)
-
-        let keyRow = UIStackView(arrangedSubviews: ["ㄱ", "ㄴ", "ㄷ", "a", "b"].map(makeKey))
-        keyRow.axis = .horizontal
-        keyRow.spacing = 6
-        keyRow.distribution = .fillEqually
-
-        let controlRow = UIStackView(arrangedSubviews: [
-            makeControl("🌐", action: #selector(handleInputModeList(from:with:)), events: .allTouchEvents),
-            makeControl("space", action: #selector(spaceTapped)),
-            makeControl("⌫", action: #selector(deleteTapped)),
-            makeControl("↵", action: #selector(returnTapped)),
-            makeControl("save", action: #selector(saveTapped)),
-        ])
-        controlRow.axis = .horizontal
-        controlRow.spacing = 6
-        controlRow.distribution = .fillEqually
-
-        let stack = UIStackView(arrangedSubviews: [statusLabel, modeControl, keyRow, controlRow, logLabel])
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
-            keyRow.heightAnchor.constraint(equalToConstant: 44),
-            controlRow.heightAnchor.constraint(equalToConstant: 40),
-        ])
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        stopDeleteRepeat()
     }
 
-    private func makeKey(_ title: String) -> UIButton {
-        let b = UIButton(type: .system)
-        b.setTitle(title, for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 20)
-        b.backgroundColor = .systemBackground
-        b.layer.cornerRadius = 6
-        b.addTarget(self, action: #selector(keyTapped(_:)), for: .touchDown)
-        return b
+    /// 사용자가 커서를 옮기거나 앱이 글을 바꾸면 조합을 확정한다.
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
+        guard !isApplyingEdit, automaton.isComposing else { return }
+        // 문맥을 못 읽는 앱(nil)에선 조합을 유지한다
+        if let before = textDocumentProxy.documentContextBeforeInput, !before.hasSuffix(automaton.composing) {
+            automaton.commit()
+        }
     }
 
-    private func makeControl(_ title: String, action: Selector, events: UIControl.Event = .touchUpInside) -> UIButton {
-        let b = UIButton(type: .system)
-        b.setTitle(title, for: .normal)
-        b.backgroundColor = .systemGray3
-        b.layer.cornerRadius = 6
-        b.addTarget(self, action: action, for: events)
-        return b
+    // MARK: - Layout
+
+    private func rebuildKeys() {
+        rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        keyButtons = []
+
+        let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe)
+        // 첫 줄 첫 키를 1칸 폭 기준으로 삼는다
+        var unitKey: UIView?
+        for (index, specs) in rows.enumerated() {
+            let row = UIStackView()
+            row.axis = .horizontal
+            row.spacing = Metric.keySpacing
+            let height = row.heightAnchor.constraint(equalToConstant: Metric.rowHeight)
+            height.priority = .defaultHigh + 1
+            height.isActive = true
+
+            // kbsim 녹음은 줄(R0~R4)마다 음높이가 다르다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
+            let soundRow = index == rows.count - 1 ? 4 : index + 1
+            var flexibles: [UIView] = []
+            for spec in specs {
+                let keyView = spec.action == .spacer ? UIView() : makeKey(spec, soundRow: soundRow)
+                row.addArrangedSubview(keyView)
+                switch spec.width {
+                case .units(let units):
+                    if let unitKey {
+                        keyView.widthAnchor.constraint(equalTo: unitKey.widthAnchor, multiplier: units).isActive = true
+                    } else {
+                        unitKey = keyView
+                    }
+                case .flexible:
+                    if let first = flexibles.first {
+                        keyView.widthAnchor.constraint(equalTo: first.widthAnchor).isActive = true
+                    }
+                    flexibles.append(keyView)
+                }
+            }
+            rowsStack.addArrangedSubview(row)
+        }
+        refreshLabels()
     }
 
-    // MARK: - Actions
+    private func makeKey(_ spec: KeySpec, soundRow: Int) -> KeyButton {
+        let kind: KeySoundPlayer.Kind
+        switch spec.action {
+        case .space: kind = .space
+        case .backspace: kind = .backspace
+        case .enter: kind = .enter
+        default: kind = .generic(row: soundRow)
+        }
 
-    @objc private func keyTapped(_ sender: UIButton) {
-        textDocumentProxy.insertText(sender.currentTitle ?? "")
-        player.play(mode)
-        refreshStatus()
+        let key = KeyButton(spec: spec, soundKind: kind)
+        key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
+        key.addTarget(self, action: #selector(keyUpInside(_:)), for: .touchUpInside)
+        key.addTarget(self, action: #selector(keyUpOutside(_:)), for: [.touchUpOutside, .touchCancel])
+        if spec.action == .nextKeyboard {
+            key.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
+        }
+        keyButtons.append(key)
+        return key
     }
 
-    @objc private func spaceTapped() {
-        textDocumentProxy.insertText(" ")
-        player.play(mode)
-        refreshStatus()
+    private func refreshLabels() {
+        for key in keyButtons {
+            switch key.spec.action {
+            case .character(let c):
+                key.setLabel(title: String(shiftOn ? KeyboardLayout.shifted[c] ?? c : c))
+            case .shift:
+                key.setLabel(symbol: shiftOn ? "shift.fill" : "shift")
+            case .backspace:
+                key.setLabel(symbol: "delete.left")
+            case .space:
+                key.setLabel(title: "스페이스")
+            case .enter:
+                key.setLabel(symbol: "return")
+            case .layer(.symbols):
+                key.setLabel(title: "123")
+            case .layer(.hangul):
+                key.setLabel(title: "한")
+            case .nextKeyboard:
+                key.setLabel(symbol: "globe")
+            case .spacer:
+                break
+            }
+        }
     }
 
-    @objc private func deleteTapped() {
-        textDocumentProxy.deleteBackward()
-        player.play(mode)
-        refreshStatus()
+    // MARK: - Touch
+
+    @objc private func keyDown(_ key: KeyButton) {
+        player.play(.press, key.soundKind)
+        if key.spec.action == .backspace {
+            deleteBackward()
+            startDeleteRepeat()
+        }
     }
 
-    @objc private func returnTapped() {
-        textDocumentProxy.insertText("\n")
-        player.play(mode)
-        refreshStatus()
+    @objc private func keyUpInside(_ key: KeyButton) {
+        player.play(.release, key.soundKind)
+        stopDeleteRepeat()
+        perform(key.spec.action)
     }
 
-    /// 익스텐션 자신의 UserDefaults.standard 에 카운터를 저장한다.
-    /// 키보드를 닫았다 다시 열어도 Local 값이 남아 있으면 Full Access 없이 설정 유지가 가능하다는 뜻.
-    @objc private func saveTapped() {
-        let next = UserDefaults.standard.integer(forKey: "localCounter") + 1
-        UserDefaults.standard.set(next, forKey: "localCounter")
-        refreshStatus()
+    @objc private func keyUpOutside(_ key: KeyButton) {
+        player.play(.release, key.soundKind)
+        stopDeleteRepeat()
     }
 
-    @objc private func modeChanged(_ sender: UISegmentedControl) {
-        mode = KeySoundPlayer.Mode.allCases[sender.selectedSegmentIndex]
+    private func perform(_ action: KeyAction) {
+        switch action {
+        case .character(let c):
+            let key = shiftOn ? KeyboardLayout.shifted[c] ?? c : c
+            apply(automaton.input(key))
+            if shiftOn {
+                shiftOn = false
+                refreshLabels()
+            }
+        case .shift:
+            shiftOn.toggle()
+            refreshLabels()
+        case .space:
+            automaton.commit()
+            textDocumentProxy.insertText(" ")
+        case .enter:
+            automaton.commit()
+            textDocumentProxy.insertText("\n")
+        case .layer(let layer):
+            automaton.commit()
+            currentLayer = layer
+            shiftOn = false
+            rebuildKeys()
+        case .backspace, .nextKeyboard, .spacer:
+            // 백스페이스는 touchDown 에서, 🌐 는 시스템 핸들러가 처리한다
+            break
+        }
     }
 
-    // MARK: - Status
+    // MARK: - Editing
 
-    private func refreshStatus() {
-        let shared = AppGroup.defaults?.string(forKey: AppGroup.Key.selectedSwitch)
-        let local = UserDefaults.standard.object(forKey: "localCounter").map { "\($0)" } ?? "nil"
-        statusLabel.text = """
-        FullAccess: \(hasFullAccess ? "ON" : "OFF")   AppGroup: \(shared ?? "nil")   Local: \(local)
-        """
-        logLabel.text = (player.setupLog + player.log).joined(separator: "\n")
+    private func apply(_ edit: TextEdit) {
+        isApplyingEdit = true
+        defer { isApplyingEdit = false }
+        for _ in 0..<edit.deleteCount {
+            textDocumentProxy.deleteBackward()
+        }
+        if !edit.insert.isEmpty {
+            textDocumentProxy.insertText(edit.insert)
+        }
+    }
+
+    private func deleteBackward() {
+        if let edit = automaton.backspace() {
+            apply(edit)
+        } else {
+            textDocumentProxy.deleteBackward()
+        }
+    }
+
+    private func startDeleteRepeat() {
+        stopDeleteRepeat()
+        deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            self?.deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                self?.player.play(.press, .backspace)
+                self?.deleteBackward()
+            }
+        }
+    }
+
+    private func stopDeleteRepeat() {
+        deleteTimer?.invalidate()
+        deleteTimer = nil
     }
 }
