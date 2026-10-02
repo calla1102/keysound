@@ -20,7 +20,8 @@ final class KeyboardTouchView: UIView {
         let x: CGFloat
     }
 
-    var onKeyDown: ((KeyButton, TouchInfo) -> Void)?
+    /// 키를 눌렀다. 컨트롤러가 이 터치를 받아들이면 true — false(무시)면 눌림 표시를 켜지 않는다.
+    var onKeyDown: ((KeyButton, TouchInfo) -> Bool)?
     var onKeyUp: ((KeyButton, TouchInfo) -> Void)?
     /// 키를 누른 채 손가락이 움직였다(그 터치가 처음 누른 키 기준). 스페이스 커서 이동에 쓴다.
     var onKeyMove: ((KeyButton, TouchInfo) -> Void)?
@@ -70,13 +71,13 @@ final class KeyboardTouchView: UIView {
         for touch in ordered(touches) {
             guard let key = nearestKey(at: touch.location(in: self)) else { continue }
             activeTouches[touch] = key
-            key.isHighlighted = true
-            onKeyDown?(key, info(touch))
+            if onKeyDown?(key, info(touch)) ?? true { key.isHighlighted = true }
         }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in ordered(touches) {
+        // 이동은 순서가 의미 없어 정렬하지 않는다
+        for touch in touches {
             guard let key = activeTouches[touch] else { continue }
             onKeyMove?(key, info(touch))
         }
@@ -101,8 +102,8 @@ final class KeyboardTouchView: UIView {
     }
 
     /// 아직 떼지 않은 터치 중 조건에 맞는 키가 있는지. `onKeyUp` 시점에는 뗀 터치가 이미 빠져 있다.
-    func hasActiveTouch(where predicate: (KeyButton) -> Bool) -> Bool {
-        activeTouches.values.contains(where: predicate)
+    func hasActiveTouch(where predicate: (KeyButton, ObjectIdentifier) -> Bool) -> Bool {
+        activeTouches.contains { predicate($0.value, ObjectIdentifier($0.key)) }
     }
 
     /// timestamp 순, 같으면 x 좌표 순. 같은 이벤트의 터치는 timestamp 가 같을 수 있어 보조 기준이 필요하다.

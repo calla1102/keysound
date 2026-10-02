@@ -28,6 +28,13 @@ final class CursorDragTrackerTests: XCTestCase {
         XCTAssertEqual(total, 3)
     }
 
+    func testRemainderAccumulatesLeftward() {
+        var t = tracker()
+        var total = 0
+        for x in stride(from: 97.0, through: 70.0, by: -3.0) { total += t.move(to: CGFloat(x)) }
+        XCTAssertEqual(total, -3)
+    }
+
     func testReturningToAnchorNetsZero() {
         var t = tracker()
         var total = t.move(to: 160)
