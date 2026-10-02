@@ -212,6 +212,8 @@ final class KeyboardViewController: UIInputViewController {
                 key.setLabel(symbol: "return")
             case .layer(.symbols):
                 key.setLabel(title: "123")
+            case .layer(.moreSymbols):
+                key.setLabel(title: "#+=")
             case .layer(.hangul):
                 key.setLabel(title: "한")
             case .layer(.english):
