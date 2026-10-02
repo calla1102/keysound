@@ -30,7 +30,8 @@ public enum WordDeletion {
         return count
     }
 
-    /// 한 스칼라짜리 제로폭 문자. 이모지 결합 시퀀스 안의 ZWJ 는 그 시퀀스가 한 Character 라 해당하지 않는다.
+    /// 한 스칼라짜리 제로폭 문자. ZWJ·ZWNJ(U+200C·200D)는 앞 글자에 붙어 한 Character 가 되므로
+    /// 문자열 맨 앞·줄바꿈 뒤처럼 홀로 설 때만 해당한다(끝에 붙은 것은 앞 글자와 함께 지워진다).
     private static func isZeroWidth(_ ch: Character) -> Bool {
         guard ch.unicodeScalars.count == 1, let v = ch.unicodeScalars.first?.value else { return false }
         return (0x200B...0x200D).contains(v) || v == 0x2060 || v == 0xFEFF

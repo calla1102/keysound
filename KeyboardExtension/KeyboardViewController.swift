@@ -99,6 +99,7 @@ final class KeyboardViewController: UIInputViewController {
     deinit {
         deleteTimer?.invalidate()
         longPressTimer?.invalidate()
+        contextRecheck?.cancel()
     }
 
     override func viewDidLoad() {
@@ -661,10 +662,14 @@ final class KeyboardViewController: UIInputViewController {
         let now = CACurrentMediaTime()
         if let cached = wordContext, now - lastEditTime >= Self.contextGrace {
             // 유예가 지났으면 호스트 문맥이 최신이다 — 누르는 도중 외부에서 커서·텍스트가 바뀌어 캐시가 틀어졌는지 대조한다.
-            // 한계: 단어 틱 간격(wordInterval)이 유예보다 짧아 정상 진행 중에는 이 분기에 거의 오지 않는다(타이머 지연·재읽기 직후 정도).
-            // 그래서 연속 삭제 중 외부 변경은 잡지 못할 수 있다. 문맥 이탈 탐지를 위해 매 틱 읽으면 과삭제하므로 감수한다.
-            let actual = textDocumentProxy.documentContextBeforeInput
-            if actual == nil || !(actual ?? "").hasSuffix(cached) { wordContext = nil }
+            // 한계: 캐시가 있다는 건 직전 틱이 지웠다는 뜻이고 단어 틱 간격(wordInterval)이 유예보다 짧아,
+            // 이 분기는 메인 스레드가 유예 이상 멈췄을 때만 도는 방어 코드다. 연속 삭제 중 외부 변경은 잡지 못한다.
+            // 유예 안에서 읽으면 호스트가 갱신 전인 옛 문맥이라 과삭제하므로 감수한다.
+            guard let actual = textDocumentProxy.documentContextBeforeInput else {
+                startPlainRepeat()
+                return
+            }
+            if !actual.hasSuffix(cached) { wordContext = nil }
         }
         if wordContext == nil {
             // 방금 한 편집이 호스트 문맥에 반영되기 전이면 이번 틱은 건너뛴다(옛 문맥으로 과삭제 방지).
@@ -681,7 +686,7 @@ final class KeyboardViewController: UIInputViewController {
         var context = wordContext ?? ""
         let count = WordDeletion.count(before: context)
         if count == 0 {
-            // 문맥이 "" 다 — 줄 맨 앞 등이라 한 글자(줄바꿈일 수 있다)만 지우고 다음 틱에 다시 읽는다
+            // WordDeletion.count 가 0 인 건 빈 문자열뿐이므로 문맥이 "" 다 — 줄 맨 앞 등이라 한 글자(줄바꿈일 수 있다)만 지우고 다음 틱에 다시 읽는다
             textDocumentProxy.deleteBackward()
             lastEditTime = CACurrentMediaTime()
             wordContext = nil

@@ -28,4 +28,12 @@ final class WordDeletionTests: XCTestCase {
     func testZeroWidthSpaceAfterSpaceDeletedTogether() { XCTAssertEqual(WordDeletion.count(before: "ab \u{200B}"), 4) }
     func testZeroWidthSpaceInsideWordIsWordPart() { XCTAssertEqual(WordDeletion.count(before: "ab\u{200B}cd"), 5) }
     func testOnlyZeroWidthSpace() { XCTAssertEqual(WordDeletion.count(before: "\u{200B}"), 1) }
+    func testTrailingZeroWidthJoinerMergesWithPreviousCharacter() {
+        XCTAssertEqual(WordDeletion.count(before: "ab\u{200D}"), 2)
+        XCTAssertEqual(WordDeletion.count(before: "ab\u{200C}"), 2)
+    }
+    func testTrailingWordJoinerAndBOMDeletedWithWord() {
+        XCTAssertEqual(WordDeletion.count(before: "ab\u{2060}"), 3)
+        XCTAssertEqual(WordDeletion.count(before: "ab\u{FEFF}"), 3)
+    }
 }
