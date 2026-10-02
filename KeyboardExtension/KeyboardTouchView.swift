@@ -18,6 +18,7 @@ final class KeyboardTouchView: UIView {
     struct TouchInfo {
         let id: ObjectIdentifier
         let x: CGFloat
+        let y: CGFloat
     }
 
     /// 키를 눌렀다. 컨트롤러가 이 터치를 받아들이면 true — false(무시)면 눌림 표시를 켜지 않는다.
@@ -84,7 +85,7 @@ final class KeyboardTouchView: UIView {
     }
 
     private func info(_ touch: UITouch) -> TouchInfo {
-        TouchInfo(id: ObjectIdentifier(touch), x: touch.location(in: self).x)
+        TouchInfo(id: ObjectIdentifier(touch), x: touch.location(in: self).x, y: touch.location(in: self).y)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {

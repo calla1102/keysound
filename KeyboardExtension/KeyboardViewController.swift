@@ -62,8 +62,14 @@ final class KeyboardViewController: UIInputViewController {
     private var pendingSpaceTouch: ObjectIdentifier?
     private var longPressTimer: Timer?
     private var cursorTouch: ObjectIdentifier?
-    private var cursorTracker = CursorDragTracker()
-    private var lastSpaceX: CGFloat = 0
+    private var cursorTracker = CursorPanTracker()
+    private var lastSpacePoint: CGPoint = .zero
+    /// 줄 이동용 로컬 문맥 추정. adjustTextPosition 직후 호스트 문맥은 한발 늦게 갱신되므로 연속 이동은 이 추정으로 계산한다.
+    /// 마지막 이동 뒤 contextGrace 가 지나면 호스트 문맥으로 다시 맞춘다(외부 변경도 반영).
+    private var cursorContext: LineContext?
+    private var lastCursorMoveTime: CFTimeInterval = 0
+    /// 위아래 연속 이동 중 유지할 목표 열. 가로 이동이 일어나면 리셋한다.
+    private var goalColumn: Int?
     private var ignoredTouches: Set<ObjectIdentifier> = []
 
     private enum Metric {
@@ -315,7 +321,7 @@ final class KeyboardViewController: UIInputViewController {
         if key.spec.action == .space {
             stopDeleteRepeat()
             pendingSpaceTouch = touch.id
-            lastSpaceX = touch.x
+            lastSpacePoint = CGPoint(x: touch.x, y: touch.y)
             longPressTimer = Timer.scheduledTimer(withTimeInterval: Self.spaceLongPressDelay, repeats: false) { [weak self] _ in
                 self?.beginCursorMode()
             }
@@ -362,10 +368,43 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func keyMove(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) {
-        if pendingSpaceTouch == touch.id { lastSpaceX = touch.x }
+        if pendingSpaceTouch == touch.id { lastSpacePoint = CGPoint(x: touch.x, y: touch.y) }
         guard cursorTouch == touch.id else { return }
-        let cells = cursorTracker.move(to: touch.x)
-        if cells != 0 { textDocumentProxy.adjustTextPosition(byCharacterOffset: cells) }
+        let delta = cursorTracker.move(to: CGPoint(x: touch.x, y: touch.y))
+        if delta.columns != 0 {
+            refreshCursorContextIfNeeded()
+            goalColumn = nil
+            moveCursor(by: delta.columns)
+        } else if delta.lines != 0 {
+            moveCursorLines(delta.lines)
+        }
+    }
+
+    private func moveCursor(by offset: Int) {
+        textDocumentProxy.adjustTextPosition(byCharacterOffset: offset)
+        cursorContext?.shift(by: offset)
+        lastCursorMoveTime = CACurrentMediaTime()
+    }
+
+    private func refreshCursorContextIfNeeded() {
+        let now = CACurrentMediaTime()
+        if cursorContext != nil && now - lastCursorMoveTime < Self.contextGrace { return }
+        if let before = textDocumentProxy.documentContextBeforeInput {
+            cursorContext = LineContext(before: before, after: textDocumentProxy.documentContextAfterInput ?? "")
+        } else {
+            cursorContext = nil
+        }
+    }
+
+    /// `lines` 줄(아래 +) 이동. 한 줄씩 계산해 옮기며, 갈 수 없으면(첫/마지막 줄·문맥 nil·잘림) 거기서 멈춘다.
+    private func moveCursorLines(_ lines: Int) {
+        refreshCursorContextIfNeeded()
+        let direction: LineContext.Direction = lines < 0 ? .up : .down
+        for _ in 0..<abs(lines) {
+            guard let move = cursorContext?.verticalMove(direction, goalColumn: goalColumn) else { return }
+            goalColumn = move.goalColumn
+            moveCursor(by: move.offset)
+        }
     }
 
     private func flushPendingSpace() {
@@ -383,7 +422,9 @@ final class KeyboardViewController: UIInputViewController {
         pendingSpaceTouch = nil
         cursorTouch = touch
         commitComposition()
-        cursorTracker.begin(at: lastSpaceX)
+        cursorTracker.begin(at: lastSpacePoint)
+        cursorContext = nil
+        goalColumn = nil
         keyButtons.forEach { $0.setLabelHidden(true) }
     }
 
