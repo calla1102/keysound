@@ -21,6 +21,9 @@ enum KeyboardLayer: String, Equatable {
 
     /// 글자 레이어(한글·영문)인가. 기호 레이어에서 돌아갈 곳이 되고, 마지막 선택으로 기억된다.
     var isLetters: Bool { self == .hangul || self == .english }
+
+    /// 한/영 전환 키가 가리킬 반대쪽 글자 레이어.
+    var otherLanguage: KeyboardLayer { self == .english ? .hangul : .english }
 }
 
 /// 키 폭. `units` 는 글자 키 1칸 기준 배수, `flexible` 은 줄의 남는 폭을 같은 줄의 flexible 키끼리 나눠 갖는다.
@@ -63,14 +66,14 @@ enum KeyboardLayout {
                 chars("1234567890"),
                 chars("-/:;()₩&@\""),
                 [KeySpec(.layer(.moreSymbols), width: Self.sideKeyWidth)] + chars(".,?!'", width: .flexible) + [KeySpec(.backspace, width: Self.sideKeyWidth)],
-                bottomRow(toggle: lettersLayer, language: nil, showsGlobe: showsGlobe),
+                bottomRow(toggle: lettersLayer, language: lettersLayer.otherLanguage, showsGlobe: showsGlobe),
             ]
         case .moreSymbols:
             return [
                 chars("[]{}#%^*+="),
                 chars("_\\|~<>€£¥•"),
                 [KeySpec(.layer(.symbols), width: Self.sideKeyWidth)] + chars(".,?!'", width: .flexible) + [KeySpec(.backspace, width: Self.sideKeyWidth)],
-                bottomRow(toggle: lettersLayer, language: nil, showsGlobe: showsGlobe),
+                bottomRow(toggle: lettersLayer, language: lettersLayer.otherLanguage, showsGlobe: showsGlobe),
             ]
         }
     }
@@ -88,7 +91,7 @@ enum KeyboardLayout {
         s.map { KeySpec(.character($0), width: width) }
     }
 
-    /// `language` 는 한/영 전환 키(🌐 와 별개). 기호 레이어에는 없다.
+    /// `language` 는 한/영 전환 키(🌐 와 별개). 기호 레이어에서는 돌아갈 글자 레이어의 반대쪽 언어로 바로 간다.
     private static func bottomRow(toggle: KeyboardLayer, language: KeyboardLayer?, showsGlobe: Bool) -> [KeySpec] {
         var row = [KeySpec(.layer(toggle), width: .units(1.25))]
         if let language {
