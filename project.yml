@@ -31,6 +31,11 @@ targets:
     sources:
       - App
       - Shared
+      # 축 선택 화면 미리듣기용 — 축마다 일반 키 1개(r2)와 기본 클릭만 앱 번들에 넣는다
+      - path: KeyboardExtension/Sounds
+        includes:
+          - "*_press_generic_r2.wav"
+          - click_press.wav
     info:
       path: App/Info.plist
       properties:
