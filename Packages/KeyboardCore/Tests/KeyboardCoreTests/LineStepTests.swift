@@ -53,3 +53,21 @@ final class LineStepTests: XCTestCase {
         XCTAssertEqual(LineStep.column(before: "ab\r\nc"), 1)
     }
 }
+
+extension LineStepTests {
+    func testCrossAtDocumentEdges() {
+        // 문서 처음(첫 줄 0열)에서 위: -1 은 호스트에서 no-op, 컨트롤러는 before 가 비면 시도하지 않는다
+        XCTAssertEqual(LineStep.cross(.up, before: "", after: "아어"), -1)
+        // 문서 끝에서 아래: +1 은 호스트에서 no-op
+        XCTAssertEqual(LineStep.cross(.down, before: "끝", after: ""), 1)
+    }
+
+    func testLineSeparatorCountsAsNewline() {
+        XCTAssertEqual(LineStep.column(before: "ab\u{2028}c"), 1)
+    }
+
+    func testTruncatedLongLineUsesContextStart() {
+        // 문맥 길이 제한으로 줄 앞부분이 잘려 오면 문맥 처음을 줄 처음으로 본다(열이 실제보다 작게 나올 수 있는 한계)
+        XCTAssertEqual(LineStep.column(before: "잘린긴줄의끝부분"), 8)
+    }
+}

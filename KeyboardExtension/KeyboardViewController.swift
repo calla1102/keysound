@@ -64,12 +64,15 @@ final class KeyboardViewController: UIInputViewController {
     private var cursorTouch: ObjectIdentifier?
     private var cursorTracker = CursorPanTracker()
     private var lastSpacePoint: CGPoint = .zero
-    /// 마지막 커서 이동 시각과 그 직전 호스트 문맥. adjustTextPosition 직후 문맥은 한발 늦게 갱신되므로,
-    /// 줄 이동은 문맥이 이 스냅샷과 달라질 때까지(최대 `contextSettleTimeout`) 기다린 뒤 읽는다.
+    /// 마지막 커서 이동 시각과, 반영이 확인되지 않은 첫 이동 직전의 호스트 문맥.
+    /// adjustTextPosition 직후 문맥은 한발 늦게 갱신되므로, 줄 이동은 문맥이 이 스냅샷과 달라진 뒤 한 번 더 같은 값으로
+    /// 읽힐 때까지(최대 `contextSettleTimeout`) 기다린다. 연달아 옮긴 경우 중간 이동만 반영된 문맥을 믿지 않기 위해서다.
     private var lastCursorMoveTime: CFTimeInterval = 0
-    private var contextBeforeLastMove: CursorSnapshot?
+    private var unsettledBaseline: CursorSnapshot?
     /// 아직 처리하지 않은 줄 이동(아래 +). 한 줄은 「경계 넘기 → 문맥 갱신 대기 → 목표 열」 두 단계라 한 번에 하나씩 처리한다.
     private var pendingLines = 0
+    /// 줄 이동 처리 중에 들어온 가로 칸 수. 줄 이동이 끝나면 적용한다.
+    private var pendingColumns = 0
     private var lineMoveRunning = false
     /// 키보드가 사라지면 올려 둔 줄 이동 작업을 버린다.
     private var lineMoveGeneration = 0
@@ -151,9 +154,7 @@ final class KeyboardViewController: UIInputViewController {
         // 누른 스페이스는 떼기 전에 사라져도 입력으로 친다(터치 cancel 도 같다). 보류 전 keyDown 즉시 입력과 같은 결과다
         flushPendingSpace()
         endCursorMode()
-        lineMoveGeneration += 1
-        pendingLines = 0
-        lineMoveRunning = false
+        cancelLineMoves()
         ignoredTouches = []
         touchView.resetTouches()
     }
@@ -330,6 +331,8 @@ final class KeyboardViewController: UIInputViewController {
             ignoredTouches.insert(touch.id)
             return false
         }
+        // 손을 뗀 뒤 남은 줄 이동이 이 입력 뒤에 커서를 옮기면 엉뚱한 곳을 지우거나 쓴다. 입력이 우선이다
+        cancelLineMoves()
         player.play(.press, key.soundKind)
         // 보류 중인 공백이 있으면 이 키보다 먼저 넣어 입력 순서를 지킨다
         flushPendingSpace()
@@ -387,8 +390,11 @@ final class KeyboardViewController: UIInputViewController {
         guard cursorTouch == touch.id else { return }
         let delta = cursorTracker.move(to: CGPoint(x: touch.x, y: touch.y))
         if delta.columns != 0 {
-            // 줄 이동이 진행 중이면 그 계산이 끝날 때까지 가로 이동을 끼우지 않는다(2단계가 읽을 문맥이 틀어진다)
-            guard !lineMoveRunning && pendingLines == 0 else { return }
+            // 줄 이동이 진행 중이면 그 계산이 끝날 때까지 가로 이동을 미룬다(2단계가 읽을 문맥이 틀어진다)
+            guard !lineMoveRunning && pendingLines == 0 else {
+                pendingColumns += delta.columns
+                return
+            }
             goalColumn = nil
             moveCursor(by: delta.columns)
         } else if delta.lines != 0 {
@@ -403,23 +409,36 @@ final class KeyboardViewController: UIInputViewController {
 
     private func moveCursor(by offset: Int) {
         guard offset != 0 else { return }
-        contextBeforeLastMove = cursorSnapshot
+        if unsettledBaseline == nil { unsettledBaseline = cursorSnapshot }
         textDocumentProxy.adjustTextPosition(byCharacterOffset: offset)
         lastCursorMoveTime = CACurrentMediaTime()
     }
 
     /// 마지막 이동이 호스트 문맥에 반영됐다고 볼 수 있을 때 `then` 을 부른다.
     /// 문맥이 이동 직전과 달라지면 반영된 것으로 보고, 같은 내용의 줄 사이처럼 달라지지 않으면 시간 제한 뒤 진행한다.
-    private func whenContextSettled(_ generation: Int, then: @escaping () -> Void) {
+    /// 즉시 반영되는 호스트에서는 then → finishLineMove → runPendingLineMove 가 동기로 이어진다(깊이는 남은 줄 수만큼).
+    private func whenContextSettled(_ generation: Int, previous: CursorSnapshot? = nil, then: @escaping () -> Void) {
         guard generation == lineMoveGeneration else { return }
+        let now = cursorSnapshot
         let waited = CACurrentMediaTime() - lastCursorMoveTime
-        if contextBeforeLastMove == nil || waited >= Self.contextSettleTimeout || cursorSnapshot != contextBeforeLastMove {
+        let changedAndStable = now != unsettledBaseline && now == previous
+        if unsettledBaseline == nil || waited >= Self.contextSettleTimeout || changedAndStable {
+            unsettledBaseline = nil
             then()
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.contextPollInterval) { [weak self] in
-            self?.whenContextSettled(generation, then: then)
+            self?.whenContextSettled(generation, previous: now, then: then)
         }
+    }
+
+    /// 남은 줄 이동과 미룬 가로 이동을 버린다. 예약된 대기는 generation 이 바뀌어 아무것도 하지 않는다.
+    private func cancelLineMoves() {
+        guard lineMoveRunning || pendingLines != 0 || pendingColumns != 0 else { return }
+        lineMoveGeneration += 1
+        pendingLines = 0
+        pendingColumns = 0
+        lineMoveRunning = false
     }
 
     /// 쌓인 줄 이동을 한 줄씩 처리한다. 손을 뗀 뒤에도 이미 받은 줄 이동은 끝까지 한다(줄 경계에 멈춰 있지 않게).
@@ -438,6 +457,12 @@ final class KeyboardViewController: UIInputViewController {
                 return
             }
             let before = first.before ?? "", after = first.after ?? ""
+            if direction == .up && before.isEmpty {
+                // 문서 처음이다. 더 올라갈 줄이 없으니 남은 위쪽 이동을 버린다
+                self.pendingLines = 0
+                self.finishLineMove()
+                return
+            }
             let goal = self.goalColumn ?? LineStep.column(before: before)
             self.goalColumn = goal
             let cross = LineStep.cross(direction, before: before, after: after)
@@ -445,6 +470,9 @@ final class KeyboardViewController: UIInputViewController {
             self.whenContextSettled(generation) { [weak self] in
                 guard let self else { return }
                 let second = self.cursorSnapshot
+                // 경계를 넘었는데 문맥이 그대로면 문서 끝/처음에 막힌 것으로 보고 같은 방향 남은 이동을 버린다
+                // (메시지 앱에서 연속 빈 줄 사이도 문맥이 같아 여기서 멈출 수 있다 — 다시 끌면 이어진다)
+                if second == first { self.pendingLines = 0 }
                 let settle = LineStep.settle(direction, before: second.before ?? "", after: second.after ?? "", goalColumn: goal)
                 self.moveCursor(by: settle)
                 self.finishLineMove()
@@ -454,7 +482,13 @@ final class KeyboardViewController: UIInputViewController {
 
     private func finishLineMove() {
         lineMoveRunning = false
-        runPendingLineMove()
+        if pendingLines != 0 {
+            runPendingLineMove()
+        } else if pendingColumns != 0 {
+            goalColumn = nil
+            moveCursor(by: pendingColumns)
+            pendingColumns = 0
+        }
     }
 
     private func flushPendingSpace() {
@@ -473,6 +507,8 @@ final class KeyboardViewController: UIInputViewController {
         cursorTouch = touch
         commitComposition()
         cursorTracker.begin(at: lastSpacePoint)
+        // 이전 손가락이 남긴 줄 이동은 버린다(새 이동의 목표 열이 섞이지 않게)
+        cancelLineMoves()
         goalColumn = nil
         keyButtons.forEach { $0.setLabelHidden(true) }
     }

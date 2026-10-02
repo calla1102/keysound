@@ -69,3 +69,26 @@ extension CursorPanTrackerTests {
         XCTAssertEqual(t.move(to: CGPoint(x: 100, y: 130)), .init(columns: 0, lines: 1))
     }
 }
+
+extension CursorPanTrackerTests {
+    func testTieGoesHorizontal() {
+        var t = tracker()
+        XCTAssertEqual(t.move(to: CGPoint(x: 140, y: 140)), .init(columns: 4, lines: 0))
+    }
+
+    func testNegativeDirectionsKeepRemainder() {
+        var t = tracker()
+        XCTAssertEqual(t.move(to: CGPoint(x: 85, y: 100)), .init(columns: -1, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 80, y: 100)), .init(columns: -1, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 80, y: 20)), .init(columns: 0, lines: -2))
+    }
+
+    func testHorizontalMoveResetsVerticalProgress() {
+        var t = tracker()
+        // 세로 30pt 를 쌓다가 가로가 우세해져 한 칸 나가면 세로는 그 위치에서 다시 센다
+        XCTAssertEqual(t.move(to: CGPoint(x: 100, y: 130)), .init(columns: 0, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 140, y: 130)), .init(columns: 4, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 140, y: 150)), .init(columns: 0, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 140, y: 170)), .init(columns: 0, lines: 1))
+    }
+}

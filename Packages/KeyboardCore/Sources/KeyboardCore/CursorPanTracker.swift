@@ -12,6 +12,9 @@ public struct CursorPanTracker: Equatable {
     /// 한 줄을 옮기는 데 필요한 세로 거리(pt).
     /// 스페이스는 맨 아랫줄이라 아래로 끌 여유가 적어 키 높이(42pt)보다 작게 잡은 30pt. 설계상 추정이며 실기기에서 조정한다.
     public static let defaultLineStep: CGFloat = 30
+    /// 한 칸을 옮기는 데 필요한 가로 거리(pt). 키 한 칸(약 35pt) 가로폭의 1/3 이내라 키보드 폭을 한 번 훑으면 한 줄 대부분을 지나가면서,
+    /// 손 떨림(수 pt)에는 커서가 흔들리지 않는 크기(#25 에서 실기기 체감 확인).
+    public static let defaultStep: CGFloat = 10
 
     public struct Delta: Equatable {
         public var columns: Int
@@ -26,7 +29,7 @@ public struct CursorPanTracker: Equatable {
     public let lineStep: CGFloat
     private var origin: CGPoint = .zero
 
-    public init(step: CGFloat = CursorDragTracker.defaultStep, lineStep: CGFloat = CursorPanTracker.defaultLineStep) {
+    public init(step: CGFloat = CursorPanTracker.defaultStep, lineStep: CGFloat = CursorPanTracker.defaultLineStep) {
         precondition(step > 0 && lineStep > 0)
         self.step = step
         self.lineStep = lineStep

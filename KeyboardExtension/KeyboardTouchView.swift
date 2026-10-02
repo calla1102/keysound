@@ -14,7 +14,7 @@ final class KeyboardTouchView: UIView {
             setNeedsLayout()
         }
     }
-    /// 콜백에 넘기는 터치 정보. `id` 는 같은 손가락의 down·move·up 을 이어 주고, `x` 는 이 뷰 좌표계의 가로 위치.
+    /// 콜백에 넘기는 터치 정보. `id` 는 같은 손가락의 down·move·up 을 이어 주고, `x`·`y` 는 이 뷰 좌표계의 위치.
     struct TouchInfo {
         let id: ObjectIdentifier
         let x: CGFloat
@@ -85,7 +85,8 @@ final class KeyboardTouchView: UIView {
     }
 
     private func info(_ touch: UITouch) -> TouchInfo {
-        TouchInfo(id: ObjectIdentifier(touch), x: touch.location(in: self).x, y: touch.location(in: self).y)
+        let point = touch.location(in: self)
+        return TouchInfo(id: ObjectIdentifier(touch), x: point.x, y: point.y)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
