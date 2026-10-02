@@ -96,7 +96,7 @@ enum KeyboardLayout {
         case .decimalPad:
             bottom = (showsGlobe ? globe : []) + [flex(.character(".")), flex(.character("0")), flex(.backspace)]
         case .phonePad:
-            bottom = (showsGlobe ? globe : []) + digits("*0#") + [flex(.backspace)]
+            bottom = (showsGlobe ? globe : []) + digits("+*0#") + [flex(.backspace)]
         case .asciiNumberPad:
             bottom = leading + [flex(.character("0")), flex(.backspace), flex(.enter)]
         default:

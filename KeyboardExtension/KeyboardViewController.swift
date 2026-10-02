@@ -48,6 +48,7 @@ final class KeyboardViewController: UIInputViewController {
     /// 우리 마지막 편집 시각. 호스트 앱은 문맥(documentContext)을 한발 늦게 갱신하므로 이 직후의 불일치는 믿지 않는다.
     private var lastEditTime: CFTimeInterval = 0
     private var contextRecheck: DispatchWorkItem?
+    private var returnRecheck: DispatchWorkItem?
     private static let contextGrace: CFTimeInterval = CompositionGuard.grace
     /// 한글 조합 확정 판정(최근 조합 기록 보유). 판정 규칙·경계는 KeyboardCore 의 CompositionGuard 참고.
     private var compositionGuard = CompositionGuard()
@@ -101,6 +102,7 @@ final class KeyboardViewController: UIInputViewController {
         deleteTimer?.invalidate()
         longPressTimer?.invalidate()
         contextRecheck?.cancel()
+        returnRecheck?.cancel()
     }
 
     override func viewDidLoad() {
@@ -108,11 +110,6 @@ final class KeyboardViewController: UIInputViewController {
         // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. UIKit hit-test 는 배경색을 보지 않지만,
         // 완전 투명(.clear) 영역의 터치가 익스텐션 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 0.001 을 쓴다.
         view.backgroundColor = UIColor(white: 0, alpha: 0.001)
-        if let raw = UserDefaults.standard.string(forKey: Self.lastLayerKey),
-           let saved = KeyboardLayer(rawValue: raw), saved.isLetters {
-            currentLayer = saved
-            lettersLayer = saved
-        }
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
@@ -253,6 +250,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         commitComposition()
         shift.reset()
+        // 누르고 있던 옛 키가 새 레이어 위에서 keyUp 으로 실행되지 않게 한다
+        touchView.resetTouches()
         let saved = Self.savedLettersLayer()
         lettersLayer = saved
         currentLayer = saved
@@ -264,15 +263,26 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// 리턴 키를 눌러도 되는가. 문서가 비면 비활성인 입력란이라도, 방금 우리가 편집했다면 호스트 갱신이 늦은 것이라 허용한다.
+    /// 잘못 막으면 입력이 사라지므로 hasText 외에 커서 앞뒤 문맥이 하나라도 있으면 활성으로 본다.
     private var returnKeyEnabled: Bool {
         guard profile?.enablesReturnKeyAutomatically == true else { return true }
-        return textDocumentProxy.hasText || automaton.isComposing
+        let proxy = textDocumentProxy
+        return proxy.hasText || automaton.isComposing
+            || !(proxy.documentContextBeforeInput ?? "").isEmpty
+            || !(proxy.documentContextAfterInput ?? "").isEmpty
             || CACurrentMediaTime() - lastEditTime < Self.contextGrace
     }
 
+    /// 유예 안에서 칠한 「활성」이 유예가 끝난 뒤에도 남지 않게, 유예 끝에 한 번 더 칠한다.
     private func refreshReturnKey() {
         let dimmed = !returnKeyEnabled
         for key in keyButtons where key.spec.action == .enter { key.setDimmed(dimmed) }
+        returnRecheck?.cancel()
+        let elapsed = CACurrentMediaTime() - lastEditTime
+        guard profile?.enablesReturnKeyAutomatically == true, elapsed < Self.contextGrace else { return }
+        let work = DispatchWorkItem { [weak self] in self?.refreshReturnKey() }
+        returnRecheck = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + (Self.contextGrace - elapsed + 0.02), execute: work)
     }
 
     // MARK: - Layout
@@ -631,8 +641,11 @@ final class KeyboardViewController: UIInputViewController {
             commitComposition()
             currentLayer = layer
             if layer.isLetters {
+                // 언어가 실제로 바뀔 때만 저장한다. 영문 시작 입력란에서 기호를 다녀와도 「마지막 언어」를 덮어쓰지 않게
+                if layer != lettersLayer {
+                    UserDefaults.standard.set(layer.rawValue, forKey: Self.lastLayerKey)
+                }
                 lettersLayer = layer
-                UserDefaults.standard.set(layer.rawValue, forKey: Self.lastLayerKey)
             }
             shift.reset()
             rebuildKeys()
