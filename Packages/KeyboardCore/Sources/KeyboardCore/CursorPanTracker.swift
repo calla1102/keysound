@@ -1,16 +1,17 @@
 import CoreGraphics
 
 /// 스페이스바 커서 이동 모드에서 손가락 위치를 「가로 칸 수 + 세로 줄 수」로 바꾼다.
-/// 각 축은 `CursorDragTracker` 로 누적 계산하고, 한 축이 움직이면 다른 축의 기준점을 현재 위치로 다시 잡는다.
 ///
-/// 대각선 처리: 사선으로 끌면 두 축이 서로 부분 이동량을 쌓아 커서가 가로·세로로 번갈아 흔들린다.
-/// 그래서 한 번의 `move` 에서 둘 다 넘으면 이동 거리(pt)가 큰 쪽만 취하고, 한 축이 나가면 다른 축의 쌓인 거리를 버린다.
-/// 세로 줄 간격이 가로 칸보다 훨씬 크므로(40pt 대 10pt) 세로로 끌다 손가락이 살짝 옆으로 새도 가로 이동이 끼어들지 않는다.
-/// (iOS 기본 트랙패드처럼 자유 대각선은 아니고 지배 축 우선이다. 줄 이동이 열 계산에 의존해 두 축이 섞이면 결과가 읽기 어렵기 때문이다.)
+/// 기준점(origin)에서 지금 위치까지의 변위로 축을 고른다: 가로 변위가 세로 이상이면 가로만, 아니면 세로만 센다.
+/// 한 축이 칸을 넘기면 그 축은 넘긴 칸만큼만 기준점을 옮기고(남은 거리는 쌓아 둠), 다른 축의 기준점은 현재 위치로 다시 잡는다.
+///
+/// 세로로 끌 때 엄지가 호를 그려 옆으로 10pt 넘게 새도, 세로 변위가 더 크면 가로 칸이 나가지 않아 세로 누적이 지워지지 않는다.
+/// (예전 방식은 각 축을 따로 세서 가로 1칸이 먼저 나가면 세로 누적을 버려, 위아래 이동이 됐다 안 됐다 했다.)
+/// iOS 기본 트랙패드처럼 자유 대각선은 아니고 지배 축 우선이다. 줄 이동이 열 계산에 의존해 두 축이 섞이면 결과가 읽기 어렵기 때문이다.
 public struct CursorPanTracker: Equatable {
-    /// 한 줄을 옮기는 데 필요한 세로 거리(pt). 키 높이(42pt)와 비슷하게 잡아 키보드 한 번 훑으면 3~4줄을 지나가고,
-    /// 가로 step(10pt)보다 훨씬 커서 한 줄 이동이 한 칸보다 가볍게 일어나지 않는다. 설계상 추정이며 실기기에서 조정한다.
-    public static let defaultLineStep: CGFloat = 40
+    /// 한 줄을 옮기는 데 필요한 세로 거리(pt).
+    /// 스페이스는 맨 아랫줄이라 아래로 끌 여유가 적어 키 높이(42pt)보다 작게 잡은 30pt. 설계상 추정이며 실기기에서 조정한다.
+    public static let defaultLineStep: CGFloat = 30
 
     public struct Delta: Equatable {
         public var columns: Int
@@ -21,38 +22,34 @@ public struct CursorPanTracker: Equatable {
         }
     }
 
-    private var horizontal: CursorDragTracker
-    private var vertical: CursorDragTracker
+    public let step: CGFloat
+    public let lineStep: CGFloat
+    private var origin: CGPoint = .zero
 
     public init(step: CGFloat = CursorDragTracker.defaultStep, lineStep: CGFloat = CursorPanTracker.defaultLineStep) {
-        horizontal = CursorDragTracker(step: step)
-        vertical = CursorDragTracker(step: lineStep)
+        precondition(step > 0 && lineStep > 0)
+        self.step = step
+        self.lineStep = lineStep
     }
 
     public mutating func begin(at point: CGPoint) {
-        horizontal.begin(at: point.x)
-        vertical.begin(at: point.y)
+        origin = point
     }
 
     /// 새로 옮길 칸 수(오른쪽 +)와 줄 수(아래 +). 둘 중 하나만 0 이 아니다.
     public mutating func move(to point: CGPoint) -> Delta {
-        var h = horizontal
-        var v = vertical
-        var dx = h.move(to: point.x)
-        var dy = v.move(to: point.y)
-        if dx != 0 && dy != 0 {
-            if abs(CGFloat(dx)) * horizontal.step >= abs(CGFloat(dy)) * vertical.step { dy = 0 } else { dx = 0 }
-        }
-        if dx != 0 {
-            horizontal = h
-            vertical.begin(at: point.y)
-        } else if dy != 0 {
-            vertical = v
-            horizontal.begin(at: point.x)
+        let dx = point.x - origin.x
+        let dy = point.y - origin.y
+        if abs(dx) >= abs(dy) {
+            let columns = Int((dx / step).rounded(.towardZero))
+            guard columns != 0 else { return Delta(columns: 0, lines: 0) }
+            origin = CGPoint(x: origin.x + CGFloat(columns) * step, y: point.y)
+            return Delta(columns: columns, lines: 0)
         } else {
-            horizontal = h
-            vertical = v
+            let lines = Int((dy / lineStep).rounded(.towardZero))
+            guard lines != 0 else { return Delta(columns: 0, lines: 0) }
+            origin = CGPoint(x: point.x, y: origin.y + CGFloat(lines) * lineStep)
+            return Delta(columns: 0, lines: lines)
         }
-        return Delta(columns: dx, lines: dy)
     }
 }

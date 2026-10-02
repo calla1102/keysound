@@ -36,3 +36,36 @@ final class CursorPanTrackerTests: XCTestCase {
         XCTAssertEqual(u.move(to: CGPoint(x: 150, y: 140)), .init(columns: 5, lines: 0))
     }
 }
+
+extension CursorPanTrackerTests {
+    func testSidewaysDriftOverOneCellDuringVerticalDrag() {
+        var t = tracker()
+        // 엄지 호를 그리며 위로 끌 때 x 가 12pt 새도 세로 40pt 에서 한 줄 올라가야 한다
+        XCTAssertEqual(t.move(to: CGPoint(x: 106, y: 85)), .init(columns: 0, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 112, y: 70)), .init(columns: 0, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 112, y: 60)), .init(columns: 0, lines: -1))
+    }
+}
+
+extension CursorPanTrackerTests {
+    func testVerticalAfterLongHorizontalDrag() {
+        var t = tracker()
+        // 오른쪽으로 길게 옮긴 뒤 위로 끌어도 세로가 먹혀야 한다(가로 변위가 기준점에 남아 세로를 막지 않음)
+        XCTAssertEqual(t.move(to: CGPoint(x: 200, y: 100)), .init(columns: 10, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 203, y: 60)), .init(columns: 0, lines: -1))
+    }
+
+    func testHorizontalRemainderKeptAndReversible() {
+        var t = tracker()
+        // 15pt → 1칸, 남은 5pt 는 쌓였다가 다음 5pt 에서 1칸, 되돌아오면 같은 칸 수만큼 돌아감
+        XCTAssertEqual(t.move(to: CGPoint(x: 115, y: 101)), .init(columns: 1, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 120, y: 101)), .init(columns: 1, lines: 0))
+        XCTAssertEqual(t.move(to: CGPoint(x: 100, y: 101)), .init(columns: -2, lines: 0))
+    }
+
+    func testDefaultLineStepFitsDownwardRoom() {
+        var t = CursorPanTracker()
+        t.begin(at: CGPoint(x: 100, y: 100))
+        XCTAssertEqual(t.move(to: CGPoint(x: 100, y: 130)), .init(columns: 0, lines: 1))
+    }
+}
