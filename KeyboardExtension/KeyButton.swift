@@ -56,6 +56,11 @@ final class KeyButton: UIButton {
         imageView?.alpha = hidden ? 0 : 1
     }
 
+    /// 비활성으로 보이게만 한다(리턴 키 자동 비활성). 실제 입력 차단은 컨트롤러가 한다.
+    func setDimmed(_ dimmed: Bool) {
+        alpha = dimmed ? 0.5 : 1
+    }
+
     func setLabel(title: String? = nil, symbol: String? = nil) {
         setTitle(title, for: .normal)
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)

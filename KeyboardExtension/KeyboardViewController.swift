@@ -15,6 +15,8 @@ final class KeyboardViewController: UIInputViewController {
     private var lettersLayer: KeyboardLayer = .hangul
     private var showsGlobe = true
     private var shift = ShiftState()
+    /// 현재 입력란의 키보드·리턴 키 종류. 처음 반영하기 전엔 nil.
+    private var profile: InputProfile?
     /// 익스텐션 자체 UserDefaults 에 마지막 언어를 기억한다(Full Access 없이 동작)
     private static let lastLayerKey = "lastLettersLayer"
 
@@ -138,7 +140,8 @@ final class KeyboardViewController: UIInputViewController {
             rowsStack.trailingAnchor.constraint(equalTo: touchView.trailingAnchor, constant: -3),
             rowsStack.bottomAnchor.constraint(equalTo: touchView.bottomAnchor, constant: -4),
         ])
-        rebuildKeys()
+        // 입력란 종류에 맞는 레이어로 시작하고 키를 만든다
+        applyInputTraits()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -146,6 +149,8 @@ final class KeyboardViewController: UIInputViewController {
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
         commitComposition()
+        // viewDidLoad 시점엔 입력란 정보가 기본값일 수 있어 보일 때 다시 읽는다
+        applyInputTraits()
         if shift.mode == .once {
             shift.clearOnce()
             refreshLabels()
@@ -174,11 +179,16 @@ final class KeyboardViewController: UIInputViewController {
     /// 우리 자신의 편집도 같은 알림을 부르므로, 문맥이 「우리가 만든 조합으로 끝나는지」로 구분한다.
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        // 입력란이 바뀌면 textDidChange 가 불린다. 종류가 같으면 아무것도 하지 않아 수동 레이어 선택을 지키고,
+        // 글이 비고 채워질 때마다 불리므로 리턴 키 비활성 표시도 여기서 갱신한다
+        applyInputTraits()
+        refreshReturnKey()
         validateComposition()
     }
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
+        refreshReturnKey()
         validateComposition()
     }
 
@@ -220,6 +230,51 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    // MARK: - Input traits
+
+    /// 마지막으로 쓴 글자 레이어(익스텐션 UserDefaults). 없으면 한글.
+    private static func savedLettersLayer() -> KeyboardLayer {
+        UserDefaults.standard.string(forKey: lastLayerKey)
+            .flatMap(KeyboardLayer.init(rawValue:))
+            .flatMap { $0.isLetters ? $0 : nil } ?? .hangul
+    }
+
+    /// 입력란 종류를 읽어 반영한다. `keyboardType` 이 바뀔 때만 레이어를 새로 고르고
+    /// (그 사이 사용자가 한/영·기호로 바꾼 레이어는 그대로 둔다), 리턴 키 종류만 바뀌면 라벨만 고친다.
+    /// 시작 레이어는 저장된 「마지막 언어」를 덮어쓰지 않는다. 보조 입력란을 지나도 다음 일반 입력란은 늘 쓰던 언어로 돌아간다.
+    private func applyInputTraits() {
+        let next = InputProfile(proxy: textDocumentProxy)
+        guard next != profile else { return }
+        let typeChanged = next.keyboardType != profile?.keyboardType
+        profile = next
+        guard typeChanged else {
+            refreshLabels()
+            return
+        }
+        commitComposition()
+        shift.reset()
+        let saved = Self.savedLettersLayer()
+        lettersLayer = saved
+        currentLayer = saved
+        if let start = next.startLayer {
+            currentLayer = start
+            if start.isLetters { lettersLayer = start }
+        }
+        rebuildKeys()
+    }
+
+    /// 리턴 키를 눌러도 되는가. 문서가 비면 비활성인 입력란이라도, 방금 우리가 편집했다면 호스트 갱신이 늦은 것이라 허용한다.
+    private var returnKeyEnabled: Bool {
+        guard profile?.enablesReturnKeyAutomatically == true else { return true }
+        return textDocumentProxy.hasText || automaton.isComposing
+            || CACurrentMediaTime() - lastEditTime < Self.contextGrace
+    }
+
+    private func refreshReturnKey() {
+        let dimmed = !returnKeyEnabled
+        for key in keyButtons where key.spec.action == .enter { key.setDimmed(dimmed) }
+    }
+
     // MARK: - Layout
 
     private func rebuildKeys() {
@@ -227,7 +282,8 @@ final class KeyboardViewController: UIInputViewController {
         keyButtons = []
         defer { touchView.keys = keyButtons }
 
-        let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe, lettersLayer: lettersLayer)
+        let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe, lettersLayer: lettersLayer,
+                                      accessories: profile?.accessoryKeys ?? [])
         // 첫 줄 첫 키를 1칸 폭 기준으로 삼는다
         var unitKey: UIView?
         for (index, specs) in rows.enumerated() {
@@ -310,7 +366,12 @@ final class KeyboardViewController: UIInputViewController {
             case .space:
                 key.setLabel(title: "스페이스")
             case .enter:
-                key.setLabel(symbol: "return")
+                if let title = profile?.returnTitle {
+                    key.setLabel(title: title)
+                } else {
+                    key.setLabel(symbol: "return")
+                }
+                key.setDimmed(!returnKeyEnabled)
             case .layer(.symbols):
                 key.setLabel(title: "123")
             case .layer(.moreSymbols):
@@ -319,6 +380,9 @@ final class KeyboardViewController: UIInputViewController {
                 key.setLabel(title: "한")
             case .layer(.english):
                 key.setLabel(title: "EN")
+            case .layer:
+                // 숫자 패드 레이어로 가는 키는 없다
+                break
             case .nextKeyboard:
                 key.setLabel(symbol: "globe")
             case .spacer:
@@ -557,6 +621,8 @@ final class KeyboardViewController: UIInputViewController {
             textDocumentProxy.insertText(" ")
             lastEditTime = CACurrentMediaTime()
         case .enter:
+            // 비활성으로 보이는 리턴 키는 소리만 나고 입력은 없다
+            guard returnKeyEnabled else { break }
             commitComposition()
             textDocumentProxy.insertText("\n")
             lastEditTime = CACurrentMediaTime()
