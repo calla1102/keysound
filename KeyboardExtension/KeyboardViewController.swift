@@ -1,4 +1,5 @@
 import HangulEngine
+import KeyboardCore
 import UIKit
 
 /// 두벌식 한글 키보드. 키를 누를 때(touchDown) 입력하고 press 음, 뗄 때 release 음을 낸다.
@@ -10,8 +11,12 @@ final class KeyboardViewController: UIInputViewController {
     private var automaton = HangulAutomaton()
 
     private var currentLayer: KeyboardLayer = .hangul
+    /// 기호 레이어에서 돌아갈 글자 레이어. 마지막으로 쓴 언어.
+    private var lettersLayer: KeyboardLayer = .hangul
     private var showsGlobe = true
-    private var shiftOn = false
+    private var shift = ShiftState()
+    /// 익스텐션 자체 UserDefaults 에 마지막 언어를 기억한다(Full Access 없이 동작)
+    private static let lastLayerKey = "lastLettersLayer"
 
     private let touchView = KeyboardTouchView()
     private let rowsStack = UIStackView()
@@ -37,6 +42,11 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Palette.background
+        if let raw = UserDefaults.standard.string(forKey: Self.lastLayerKey),
+           let saved = KeyboardLayer(rawValue: raw), saved.isLetters {
+            currentLayer = saved
+            lettersLayer = saved
+        }
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
@@ -70,8 +80,8 @@ final class KeyboardViewController: UIInputViewController {
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
         automaton.commit()
-        if shiftOn {
-            shiftOn = false
+        if shift.mode == .once {
+            shift.clearOnce()
             refreshLabels()
         }
         if showsGlobe != needsInputModeSwitchKey {
@@ -118,7 +128,7 @@ final class KeyboardViewController: UIInputViewController {
         keyButtons = []
         defer { touchView.keys = keyButtons }
 
-        let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe)
+        let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe, lettersLayer: lettersLayer)
         // 첫 줄 첫 키를 1칸 폭 기준으로 삼는다
         var unitKey: UIView?
         for (index, specs) in rows.enumerated() {
@@ -185,9 +195,15 @@ final class KeyboardViewController: UIInputViewController {
         for key in keyButtons {
             switch key.spec.action {
             case .character(let c):
-                key.setLabel(title: String(shiftOn ? KeyboardLayout.shifted[c] ?? c : c))
+                key.setLabel(title: String(displayed(c)))
             case .shift:
-                key.setLabel(symbol: shiftOn ? "shift.fill" : "shift")
+                // 꺼짐 / 1회(채운 화살표) / 캡스락(캡스락 기호 + 밝은 배경)
+                switch shift.mode {
+                case .off: key.setLabel(symbol: "shift")
+                case .once: key.setLabel(symbol: "shift.fill")
+                case .caps: key.setLabel(symbol: "capslock.fill")
+                }
+                key.setEmphasized(shift.mode != .off)
             case .backspace:
                 key.setLabel(symbol: "delete.left")
             case .space:
@@ -198,6 +214,8 @@ final class KeyboardViewController: UIInputViewController {
                 key.setLabel(title: "123")
             case .layer(.hangul):
                 key.setLabel(title: "한")
+            case .layer(.english):
+                key.setLabel(title: "EN")
             case .nextKeyboard:
                 key.setLabel(symbol: "globe")
             case .spacer:
@@ -248,14 +266,20 @@ final class KeyboardViewController: UIInputViewController {
     private func handle(_ action: KeyAction) {
         switch action {
         case .character(let c):
-            let key = shiftOn ? KeyboardLayout.shifted[c] ?? c : c
-            apply(automaton.input(key))
-            if shiftOn {
-                shiftOn = false
+            let key = displayed(c)
+            if currentLayer == .english {
+                automaton.commit()
+                textDocumentProxy.insertText(String(key))
+                lastEditTime = CACurrentMediaTime()
+            } else {
+                apply(automaton.input(key))
+            }
+            if shift.mode == .once {
+                shift.didInputCharacter()
                 refreshLabels()
             }
         case .shift:
-            shiftOn.toggle()
+            shift.tap(at: CACurrentMediaTime(), allowsCaps: currentLayer == .english)
             refreshLabels()
         case .space:
             automaton.commit()
@@ -266,9 +290,14 @@ final class KeyboardViewController: UIInputViewController {
             textDocumentProxy.insertText("\n")
             lastEditTime = CACurrentMediaTime()
         case .layer(let layer):
+            // 한/영 전환 때 조합 중인 글자는 확정한다
             automaton.commit()
             currentLayer = layer
-            shiftOn = false
+            if layer.isLetters {
+                lettersLayer = layer
+                UserDefaults.standard.set(layer.rawValue, forKey: Self.lastLayerKey)
+            }
+            shift.reset()
             rebuildKeys()
         case .backspace, .nextKeyboard, .spacer:
             // 백스페이스는 keyDown 에서 따로 처리하고, 🌐 는 시스템 핸들러가 처리한다
@@ -277,6 +306,15 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     // MARK: - Editing
+
+    /// 현재 레이어와 Shift 상태가 반영된 글자.
+    private func displayed(_ c: Character) -> Character {
+        guard shift.isActive else { return c }
+        if currentLayer == .english {
+            return Character(String(c).uppercased())
+        }
+        return KeyboardLayout.shifted[c] ?? c
+    }
 
     private func apply(_ edit: TextEdit) {
         isApplyingEdit = true
