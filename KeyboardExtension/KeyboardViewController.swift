@@ -157,9 +157,10 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillDisappear(animated)
         stopDeleteRepeat()
         contextRecheck?.cancel()
-        compositionGuard.reset()
         // 누른 스페이스는 떼기 전에 사라져도 입력으로 친다(터치 cancel 도 같다). 보류 전 keyDown 즉시 입력과 같은 결과다
         flushPendingSpace()
+        // flush 의 조합 확정이 남긴 기록까지 비운다
+        compositionGuard.reset()
         endCursorMode()
         cancelLineMoves()
         ignoredTouches = []

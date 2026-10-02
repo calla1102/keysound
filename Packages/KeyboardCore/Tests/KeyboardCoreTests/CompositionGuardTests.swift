@@ -1,5 +1,5 @@
 import XCTest
-@testable import KeyboardCore
+import KeyboardCore
 
 final class CompositionGuardTests: XCTestCase {
     private func stale(_ g: CompositionGuard, composing: String = "가", before: String?, edit: Double = 0, now: Double) -> Bool {
@@ -20,11 +20,11 @@ final class CompositionGuardTests: XCTestCase {
 
     func testGraceBoundary() {
         var g = CompositionGuard()
-        g.note(composing: "", at: 10) // 빈 기록이 있어 유예 안에서는 관대
+        g.note(composing: "", at: 0) // 빈 기록이 있어 유예 안에서는 관대
         // now - lastEdit < 0.3 이면 유예 안
-        XCTAssertFalse(stale(g, before: "다른", edit: 10, now: 10.299))
-        // 정확히 0.3 은 유예 밖(<) → stale
-        XCTAssertTrue(stale(g, before: "다른", edit: 10, now: 10.3))
+        XCTAssertFalse(stale(g, before: "다른", edit: 0, now: 0.299))
+        // 정확히 0.3 은 유예 밖(<) → stale. 뺄셈이 정확히 grace 가 되도록 edit 을 0 으로 둔다
+        XCTAssertTrue(stale(g, before: "다른", edit: 0, now: CompositionGuard.grace))
     }
 
     func testWithinGraceMatchingRecentRecordIsNotStale() {
@@ -44,7 +44,7 @@ final class CompositionGuardTests: XCTestCase {
     func testRecordWindowInclusiveAndExclusive() {
         var g = CompositionGuard()
         g.note(composing: "ㅎ", at: 0)
-        // 마지막 편집이 늦어 유예 안이어도 기록이 창 밖이면 무시 (0.6 은 포함, 0.7 은 제외)
+        // 마지막 편집이 늦어 유예 안이어도 기록이 창 밖이면 무시 (0.6 은 포함, 0.75 는 제외)
         XCTAssertFalse(g.isStale(composing: "하", before: "ㅎ", lastEditTime: 0.5, now: 0.6))
         XCTAssertTrue(g.isStale(composing: "하", before: "ㅎ", lastEditTime: 0.7, now: 0.75))
     }
