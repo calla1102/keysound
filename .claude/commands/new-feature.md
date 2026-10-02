@@ -5,11 +5,13 @@
 0. **세션 충돌 확인**: `ListAgents` 로 busy 인 keysound 세션이 있는지 본다. 같은 작업을 하는 것으로 보이면 사용자에게 알리고 멈춘다. **메인 워킹트리의 브랜치는 건드리지 않는다** — 그래서 항상 worktree 를 판다.
 
 1. **이슈 확정 — 작업 1개 = 이슈 1 + 브랜치 1 + PR 1**
-   - `$ARGUMENTS` 에 `#N` 이 있으면 `gh issue view N --json number,title,state,labels` 로 확인한다. `CLOSED` 면 멈추고 묻는다.
-   - 없으면 설명으로 **이슈부터 만든다**: `gh issue create --title "<타입 접두어 없는 제목>" --body "<배경·할 일 체크리스트>" --label <라벨> --assignee @me`. 라벨은 `feat`→`enhancement`, `fix`→`bug`, `docs`→`documentation`, `chore`·`refactor`→ 없음.
-   - 이미 같은 일을 다루는 열린 이슈가 있는지 `gh issue list --state open --search "<키워드>"` 로 먼저 본다. 있으면 그 이슈를 쓸지 묻는다.
+   - `$ARGUMENTS` 에 `#N` 이 있으면 `gh issue view N --json number,title,state,labels,url` 로 확인한다. `CLOSED` 거나 `url` 이 `/pull/` 이면 멈추고 묻는다.
+   - 설명만 있으면:
+     1. 같은 일을 다루는 열린 이슈가 있는지 `gh issue list --state open --search "<키워드>"` 로 **먼저** 본다. 있으면 그 이슈를 쓸지 묻는다.
+     2. 작업 종류(`feat`/`fix`/`chore`/`refactor`/`docs`)를 정한다. 애매하면 `feat`.
+     3. **이슈부터 만든다**: 본문(배경·할 일 체크리스트)을 `Write` 툴로 파일에 먼저 쓰고 `gh issue create --title "<타입 접두어 없는 제목>" --body-file <절대경로> --label <라벨> --assignee @me`. 라벨은 `feat`→`enhancement`, `fix`→`bug`, `docs`→`documentation`, `chore`·`refactor`→ 없음(이때 `--label` 을 뺀다).
 
-1-1. **이름 결정**: 작업 종류(`feat`/`fix`/`chore`/`refactor`/`docs`)와 **`<이슈번호>-<kebab-case>`**. 예: 이슈 #12 "축 미리듣기 화면" → `feat/12-switch-preview`, worktree 이름은 `12-switch-preview`. `/pr` 이 브랜치 이름에서 이슈 번호를 읽으므로 번호를 빼지 않는다.
+1-1. **이름 결정**: 작업 종류(`#N` 으로 왔으면 이슈 라벨·내용으로 정한다)와 **`<이슈번호>-<kebab-case>`**. 예: 이슈 #12 "축 미리듣기 화면" → `feat/12-switch-preview`, worktree 이름은 `12-switch-preview`. `/pr` 이 브랜치 이름에서 이슈 번호를 읽으므로 번호를 빼지 않는다.
 
 2. **경로·base**
 

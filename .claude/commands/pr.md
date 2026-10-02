@@ -21,12 +21,17 @@
 1-1. **이슈 번호 확정**
 
    ```bash
-   ISSUE="$(printf '%s' "$BRANCH" | sed -nE 's#^[a-z]+/([0-9]+)-.*#\1#p')"
-   [ -n "$ISSUE" ] && gh issue view "$ISSUE" --json number,title,state
+   # Bash 호출 사이에 셸 변수가 남지 않으므로 여기서 다시 계산한다
+   BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+   ISSUE="$(printf '%s' "$BRANCH" | sed -nE 's#^(feat|fix|chore|refactor|docs)/([0-9]+)(-.*)?$#\2#p')"
+   echo "branch=$BRANCH issue=${ISSUE:-없음}"
+   [ -n "$ISSUE" ] && gh issue view "$ISSUE" --json number,title,state,url
    ```
 
    - 우선순위: `$ARGUMENTS` 의 `#N` > 브랜치 이름의 번호.
-   - **둘 다 없으면** `gh issue list --state open --assignee @me` 로 후보를 보여주고 고르게 한다. 맞는 게 없으면 **그 자리에서 만든다** — 제목은 PR 제목에서 `타입:` 접두어를 뗀 것, 라벨은 6단계 매핑과 같은 값, `--assignee @me`.
+   - 브랜치 이름에 번호가 보이는데 `issue=없음` 이면 정규식이 어긋난 것이다. 멈추고 확인한다(중복 이슈 생성 방지).
+   - `url` 에 `/pull/` 이 있으면 그 번호는 이슈가 아니라 PR 이다. 멈추고 확인한다.
+   - **둘 다 없으면** `gh issue list --state open --assignee @me` 로 후보를 보여주고 고르게 한다. 맞는 게 없으면 **그 자리에서 만든다** — 제목은 4단계 규칙으로 정할 PR 제목에서 `타입:` 접두어를 뗀 것, 라벨은 6단계 매핑, `--assignee @me`. 이때 브랜치 이름에는 번호가 없는 예외가 되니 본문 `Closes #N` 으로만 묶인다.
    - 이슈가 `CLOSED` 면 멈추고 확인받는다.
 
 2. **사전 검증** — 실패하면 멈추고 보고한다.
@@ -63,10 +68,13 @@
    - `Generated with Claude Code` 류 푸터·Claude 언급 금지.
    - 키보드 UI·사운드·입력 로직을 바꿨으면 `keyboard-qa-reviewer` 를 돌려 실기기 체크리스트를 본문 「검증」에 붙인다.
 
-6. **라벨**: 저장소 기본 라벨을 쓴다 — `feat:`→`enhancement`, `fix:`→`bug`, `docs:`→`documentation`, `chore:`·`refactor:`→ 라벨 없음. 이슈 라벨도 같은 매핑.
+6. **라벨**: 저장소 기본 라벨을 쓴다 — `feat:`→`enhancement`, `fix:`→`bug`, `docs:`→`documentation`, `chore:`·`refactor:`→ 라벨 없음. 이슈 라벨도 같은 매핑. **라벨이 없으면 `--label` 플래그 자체를 뺀다.**
 
 7. **PR 생성** — 반드시 `KS_PR_OK=1` 마커를 붙이고 본문은 `--body-file` 로 넘긴다(마커가 없거나 본문 파일에 `Closes #N` 이 없으면 훅이 차단).
-   ⚠️ 훅은 명령 **실행 전**에 본문 파일을 읽는다. 본문 파일은 `Write` 툴 등으로 **앞 단계에서 먼저** 만든다. 같은 명령 안의 heredoc 으로 만들면 훅이 파일을 못 읽어 차단된다.
+   ⚠️ 훅은 명령 **실행 전**에 본문 파일을 읽는다.
+   - 본문 파일은 `Write` 툴로 **앞 단계에서 먼저** 만든다. 같은 명령 안의 heredoc 으로 만들면 훅이 파일을 못 읽어 차단된다.
+   - `--body-file` 에는 **리터럴 절대경로**를 쓴다. 셸 변수(`"$B"`)·`$(mktemp)` 는 훅이 펼칠 수 없어 차단된다.
+   - `KS_PR_OK=1`·`gh pr create` 문구를 다른 Bash 명령의 문자열 안에 넣지 않는다. 훅이 PR 생성으로 오인해 차단한다.
 
    ```bash
    KS_PR_OK=1 gh pr create --base main --title "<타입>: <제목>" \
