@@ -57,7 +57,12 @@ xcrun devicectl device process launch --device 847FCEEC-D35D-580C-AA82-401FA740F
 - **커밋 전 검증은 `.claude/hooks/enforce-build.sh` 가 강제한다.** Swift·project.yml·리소스 변경이 있으면 바뀐 패키지 `swift test` + `xcodegen generate` + 시뮬레이터 빌드를 돌리고 실패 시 차단. 긴급 우회는 `SKIP_BUILD=1`.
 - **PR 생성은 `/pr` 로만.** `gh pr create` 직접 호출은 `enforce-pr-skill.sh` 가 차단한다.
 - 머지는 `gh pr merge <N> --squash`. `--delete-branch` 금지(`guard-pr-merge.sh` 가 차단).
-- GitHub: `calla1102/keysound` (private). 이슈는 선택이다. 있으면 PR 본문 끝에 `Closes #N`.
+- GitHub: `calla1102/keysound` (private).
+- **작업 1개 = GitHub 이슈 1 + 브랜치 1 + PR 1.** (languageforest 의 노션 행·이슈·브랜치·PR 세트에서 노션을 뺀 것)
+  - 브랜치 이름 `<type>/<이슈번호>-<이름>` (예 `fix/2-fast-typing`). 매핑 파일 없이 브랜치 이름이 이슈를 가리킨다.
+  - `/new-feature #N` 또는 `/new-feature <설명>`(이슈부터 생성) → 작업 → `/pr` 이 본문 끝에 `Closes #N` 을 넣고, 머지 때 이슈가 자동으로 닫힌다.
+  - `Closes #N` 없는 PR 생성은 `enforce-pr-skill.sh` 가 차단한다.
+  - 라벨: `feat`→`enhancement`, `fix`→`bug`, `docs`→`documentation`, `chore`·`refactor`→ 없음 (이슈·PR 공통).
 
 ## Subagent 활용 (`.claude/agents/`)
 
@@ -72,8 +77,8 @@ xcrun devicectl device process launch --device 847FCEEC-D35D-580C-AA82-401FA740F
 
 ## 명령 (`.claude/commands/`)
 
-- `/pr [제목]` — 빌드·테스트 검증 → 푸시 → PR 생성 → 시니어 리뷰 → 감시 루프 제안
-- `/new-feature <설명>` — `origin/main` 에서 worktree 생성 → xcodegen → subagent 위임
+- `/pr [제목]` — 이슈 번호 확정 → 빌드·테스트 검증 → 푸시 → PR 생성(`Closes #N`) → 시니어 리뷰 → 감시 루프 제안
+- `/new-feature <#N | 설명>` — 이슈 확정(없으면 생성) → `origin/main` 에서 `<type>/<N>-<이름>` worktree 생성 → xcodegen → subagent 위임
 - `/cleanup-worktree [name]` — PR 머지 확인 후 worktree·브랜치 정리
 - `/version-bump <major|minor|patch|x.y.z>` — project.yml 의 버전·빌드 번호 올리기
 
