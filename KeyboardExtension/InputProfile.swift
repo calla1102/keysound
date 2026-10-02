@@ -25,7 +25,8 @@ struct InputProfile: Equatable {
     /// 입력란이 바뀔 때 먼저 보여 줄 레이어. nil 이면 사용자가 마지막으로 쓴 글자 레이어를 따른다.
     var startLayer: KeyboardLayer? {
         switch keyboardType {
-        case .emailAddress, .URL, .webSearch, .twitter, .asciiCapable: .english
+        // webSearch(Safari 주소창 등)는 한글 검색어가 잦아 쓰던 언어를 유지하고 보조 키만 붙인다
+        case .emailAddress, .URL, .twitter, .asciiCapable: .english
         case .numbersAndPunctuation: .symbols
         case .numberPad: .numberPad
         case .asciiCapableNumberPad: .asciiNumberPad
