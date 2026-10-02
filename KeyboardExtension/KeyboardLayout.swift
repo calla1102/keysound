@@ -16,8 +16,11 @@ enum KeyAction: Equatable {
     case spacer
 }
 
-enum KeyboardLayer: Equatable {
-    case hangul, symbols
+enum KeyboardLayer: String, Equatable {
+    case hangul, english, symbols
+
+    /// 글자 레이어(한글·영문)인가. 기호 레이어에서 돌아갈 곳이 되고, 마지막 선택으로 기억된다.
+    var isLetters: Bool { self != .symbols }
 }
 
 /// 키 폭. `units` 는 글자 키 1칸 기준 배수, `flexible` 은 줄의 남는 폭을 같은 줄의 flexible 키끼리 나눠 갖는다.
@@ -36,23 +39,31 @@ struct KeySpec {
     }
 }
 
-/// iOS 기본 두벌식 배열을 따른 키 배치.
+/// iOS 기본 두벌식·QWERTY 배열을 따른 키 배치.
 enum KeyboardLayout {
-    static func rows(for layer: KeyboardLayer, showsGlobe: Bool) -> [[KeySpec]] {
+    /// `lettersLayer` 는 기호 레이어에서 돌아갈 글자 레이어.
+    static func rows(for layer: KeyboardLayer, showsGlobe: Bool, lettersLayer: KeyboardLayer = .hangul) -> [[KeySpec]] {
         switch layer {
         case .hangul:
             return [
                 chars("ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ"),
                 [KeySpec(.spacer, width: .flexible)] + chars("ㅁㄴㅇㄹㅎㅗㅓㅏㅣ") + [KeySpec(.spacer, width: .flexible)],
                 [KeySpec(.shift, width: .flexible)] + chars("ㅋㅌㅊㅍㅠㅜㅡ") + [KeySpec(.backspace, width: .flexible)],
-                bottomRow(toggle: .symbols, showsGlobe: showsGlobe),
+                bottomRow(toggle: .symbols, language: .english, showsGlobe: showsGlobe),
+            ]
+        case .english:
+            return [
+                chars("qwertyuiop"),
+                [KeySpec(.spacer, width: .flexible)] + chars("asdfghjkl") + [KeySpec(.spacer, width: .flexible)],
+                [KeySpec(.shift, width: .flexible)] + chars("zxcvbnm") + [KeySpec(.backspace, width: .flexible)],
+                bottomRow(toggle: .symbols, language: .hangul, showsGlobe: showsGlobe),
             ]
         case .symbols:
             return [
                 chars("1234567890"),
                 chars("-/:;()₩&@\""),
                 [KeySpec(.spacer, width: .flexible)] + chars(".,?!'~") + [KeySpec(.backspace, width: .flexible)],
-                bottomRow(toggle: .hangul, showsGlobe: showsGlobe),
+                bottomRow(toggle: lettersLayer, language: nil, showsGlobe: showsGlobe),
             ]
         }
     }
@@ -67,8 +78,12 @@ enum KeyboardLayout {
         s.map { KeySpec(.character($0)) }
     }
 
-    private static func bottomRow(toggle: KeyboardLayer, showsGlobe: Bool) -> [KeySpec] {
+    /// `language` 는 한/영 전환 키(🌐 와 별개). 기호 레이어에는 없다.
+    private static func bottomRow(toggle: KeyboardLayer, language: KeyboardLayer?, showsGlobe: Bool) -> [KeySpec] {
         var row = [KeySpec(.layer(toggle), width: .units(1.25))]
+        if let language {
+            row.append(KeySpec(.layer(language), width: .units(1.25)))
+        }
         if showsGlobe {
             row.append(KeySpec(.nextKeyboard, width: .units(1.25)))
         }

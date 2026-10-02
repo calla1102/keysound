@@ -5,14 +5,16 @@ final class KeyButton: UIButton {
     let spec: KeySpec
     let soundKind: KeySoundPlayer.Kind
 
-    private let normalColor: UIColor
+    private var normalColor: UIColor
     private let pressedColor: UIColor
+    private let baseColor: UIColor
 
     init(spec: KeySpec, soundKind: KeySoundPlayer.Kind) {
         self.spec = spec
         self.soundKind = soundKind
         let isFunction = Self.isFunctionKey(spec.action)
-        normalColor = isFunction ? Palette.functionKey : Palette.characterKey
+        baseColor = isFunction ? Palette.functionKey : Palette.characterKey
+        normalColor = baseColor
         pressedColor = isFunction ? Palette.characterKey : Palette.functionKey
         super.init(frame: .zero)
 
@@ -40,6 +42,12 @@ final class KeyButton: UIButton {
 
     override var isHighlighted: Bool {
         didSet { backgroundColor = isHighlighted ? pressedColor : normalColor }
+    }
+
+    /// 켜진 토글(캡스락 등)은 글자 키 색으로 밝게 보인다.
+    func setEmphasized(_ on: Bool) {
+        normalColor = on ? Palette.characterKey : baseColor
+        backgroundColor = isHighlighted ? pressedColor : normalColor
     }
 
     func setLabel(title: String? = nil, symbol: String? = nil) {
