@@ -103,8 +103,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. 완전 투명(.clear)이면 hit-test 에서
-        // 터치가 누락될 수 있어 alpha 0.001 로 터치 영역만 유지한다(육안으로는 투명).
+        // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. UIKit hit-test 는 배경색을 보지 않지만,
+        // 완전 투명(.clear) 영역의 터치가 익스텐션 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 0.001 을 쓴다.
         view.backgroundColor = UIColor(white: 0, alpha: 0.001)
         if let raw = UserDefaults.standard.string(forKey: Self.lastLayerKey),
            let saved = KeyboardLayer(rawValue: raw), saved.isLetters {
