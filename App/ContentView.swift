@@ -61,6 +61,7 @@ struct ContentView: View {
                 }
             }
             .scrollDismissesKeyboard(.immediately)
+            .background(KeyboardDismissTap())
             .navigationTitle("Keysound")
         }
     }
