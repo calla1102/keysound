@@ -6,28 +6,38 @@ struct ContentView: View {
     private var selectedSound: SwitchSound = .default
 
     @State private var testText = ""
+    @State private var previewer = SoundPreviewer()
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Picker("타건음", selection: $selectedSound) {
-                        ForEach(SwitchSound.allCases) { sound in
-                            VStack(alignment: .leading) {
-                                Text(sound.displayName)
-                                Text(sound.summary)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                    ForEach(SwitchSound.allCases) { sound in
+                        Button {
+                            selectedSound = sound
+                            previewer.preview(sound)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(sound.displayName)
+                                        .foregroundStyle(.primary)
+                                    Text(sound.summary)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if sound == selectedSound {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                }
                             }
-                            .tag(sound)
                         }
+                        .accessibilityAddTraits(sound == selectedSound ? .isSelected : [])
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
                 } header: {
                     Text("타건음")
                 } footer: {
-                    Text("키보드를 닫았다 다시 열면 바뀐 소리가 적용됩니다. 무음 모드에서는 소리가 나지 않습니다.")
+                    Text("탭하면 소리를 미리 들을 수 있습니다. 키보드를 닫았다 다시 열면 바뀐 소리가 적용됩니다. 무음 모드에서는 소리가 나지 않습니다.")
                 }
 
                 Section("써 보기") {
@@ -41,7 +51,7 @@ struct ContentView: View {
                 }
 
                 Section("출처") {
-                    Text("갈축 소리: kbsim (github.com/tplai/kbsim), MIT License, © Thomas Lai")
+                    Text("갈축·청축·적축·흑축·무접점 소리: kbsim (github.com/tplai/kbsim), MIT License, © Thomas Lai")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
