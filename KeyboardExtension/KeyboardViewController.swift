@@ -30,6 +30,9 @@ final class KeyboardViewController: UIInputViewController {
     private var lastEditTime: CFTimeInterval = 0
     private var contextRecheck: DispatchWorkItem?
     private static let contextGrace: CFTimeInterval = 0.3
+    /// 최근 우리가 만든 조합 글자와 시각(오래된 순). 유예 중 호스트 문맥은 이 중 하나로 끝나는 옛 값일 수 있다.
+    /// 빈 문자열은 「조합이 없던 상태」라 그 앞 문맥을 알 수 없다는 뜻이다.
+    private var recentComposings: [(text: String, at: CFTimeInterval)] = []
 
     private enum Metric {
         static let rowHeight: CGFloat = 42
@@ -79,7 +82,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
-        automaton.commit()
+        commitComposition()
         if shift.mode == .once {
             shift.clearOnce()
             refreshLabels()
@@ -97,27 +100,60 @@ final class KeyboardViewController: UIInputViewController {
         touchView.resetTouches()
     }
 
-    /// 사용자가 커서를 옮기거나 앱이 글을 바꾸면 조합을 확정한다.
-    /// 빠르게 치는 중에는 우리가 방금 한 편집의 알림이 늦게 도착해 문맥이 아직 옛 값일 수 있다.
-    /// 그 불일치로 조합을 끊으면 다음 입력이 엉뚱한 글자를 지우므로, 마지막 편집 직후엔 판정을 미루고 안정된 뒤 다시 본다.
+    /// 사용자가 커서를 옮기거나 앱이 글을 바꾸면 조합을 확정한다. 커서 이동은 selectionDidChange 로도 들어온다.
+    /// 우리 자신의 편집도 같은 알림을 부르므로, 문맥이 「우리가 만든 조합으로 끝나는지」로 구분한다.
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         validateComposition()
     }
 
+    override func selectionDidChange(_ textInput: UITextInput?) {
+        super.selectionDidChange(textInput)
+        validateComposition()
+    }
+
+    private func commitComposition() {
+        automaton.commit()
+        noteComposingState()
+        contextRecheck?.cancel()
+    }
+
+    private func noteComposingState() {
+        let now = CACurrentMediaTime()
+        recentComposings.append((automaton.composing, now))
+        recentComposings.removeAll { now - $0.at > Self.contextGrace * 2 }
+    }
+
+    /// 조합 중인 글자가 문맥과 어긋났는지(커서가 옮겨졌거나 앱이 글을 바꿨는지).
+    /// 빠르게 치는 중엔 호스트 문맥이 한발 늦어 옛 조합 글자로 끝날 수 있으므로,
+    /// 마지막 편집 직후(유예 중)엔 최근 조합 글자 중 하나로 끝나기만 해도 정상으로 본다.
+    /// 오탐(정상 타이핑 중 조합이 끊김)이 미탐(드문 오삭제)보다 나쁘므로 유예 중엔 관대하게 판정한다.
+    private func compositionIsStale() -> Bool {
+        guard automaton.isComposing else { return false }
+        // 문맥을 못 읽는 앱(nil)에선 조합을 유지한다
+        guard let before = textDocumentProxy.documentContextBeforeInput else { return false }
+        if before.hasSuffix(automaton.composing) { return false }
+        let now = CACurrentMediaTime()
+        if now - lastEditTime < Self.contextGrace {
+            // 조합이 방금 시작됐으면(빈 상태가 기록에 있으면) 옛 문맥을 알 수 없으므로 믿지 않는다
+            return !recentComposings.contains { now - $0.at <= Self.contextGrace * 2 && ($0.text.isEmpty || before.hasSuffix($0.text)) }
+        }
+        return true
+    }
+
     private func validateComposition() {
         guard !isApplyingEdit, automaton.isComposing else { return }
+        if compositionIsStale() {
+            commitComposition()
+            return
+        }
+        // 유예 중이라 문맥이 옛 값일 수 있다. 안정된 뒤 한 번 더 본다.
         let elapsed = CACurrentMediaTime() - lastEditTime
         if elapsed < Self.contextGrace {
             contextRecheck?.cancel()
             let work = DispatchWorkItem { [weak self] in self?.validateComposition() }
             contextRecheck = work
             DispatchQueue.main.asyncAfter(deadline: .now() + (Self.contextGrace - elapsed + 0.02), execute: work)
-            return
-        }
-        // 문맥을 못 읽는 앱(nil)에선 조합을 유지한다
-        if let before = textDocumentProxy.documentContextBeforeInput, !before.hasSuffix(automaton.composing) {
-            automaton.commit()
         }
     }
 
@@ -230,6 +266,8 @@ final class KeyboardViewController: UIInputViewController {
 
     private func keyDown(_ key: KeyButton) {
         player.play(.press, key.soundKind)
+        // 유예 중이라도 커서가 옮겨졌으면 조합을 끊어, 새 커서 앞 글자를 지우지 않게 한다
+        if compositionIsStale() { commitComposition() }
         switch key.spec.action {
         case .backspace:
             deleteBackward()
@@ -249,7 +287,8 @@ final class KeyboardViewController: UIInputViewController {
         player.play(.release, key.soundKind)
         switch key.spec.action {
         case .backspace:
-            stopDeleteRepeat()
+            // 다른 손가락이 아직 백스페이스를 누르고 있으면 반복을 이어 간다
+            if !touchView.hasActiveTouch(where: { $0.spec.action == .backspace }) { stopDeleteRepeat() }
         case .layer:
             handle(key.spec.action)
         default:
@@ -270,7 +309,7 @@ final class KeyboardViewController: UIInputViewController {
         case .character(let c):
             let key = displayed(c)
             if currentLayer == .english {
-                automaton.commit()
+                commitComposition()
                 textDocumentProxy.insertText(String(key))
                 lastEditTime = CACurrentMediaTime()
             } else {
@@ -284,16 +323,16 @@ final class KeyboardViewController: UIInputViewController {
             shift.tap(at: CACurrentMediaTime(), allowsCaps: currentLayer == .english)
             refreshLabels()
         case .space:
-            automaton.commit()
+            commitComposition()
             textDocumentProxy.insertText(" ")
             lastEditTime = CACurrentMediaTime()
         case .enter:
-            automaton.commit()
+            commitComposition()
             textDocumentProxy.insertText("\n")
             lastEditTime = CACurrentMediaTime()
         case .layer(let layer):
             // 한/영 전환 때 조합 중인 글자는 확정한다
-            automaton.commit()
+            commitComposition()
             currentLayer = layer
             if layer.isLetters {
                 lettersLayer = layer
@@ -323,6 +362,7 @@ final class KeyboardViewController: UIInputViewController {
         defer {
             isApplyingEdit = false
             lastEditTime = CACurrentMediaTime()
+            noteComposingState()
         }
         for _ in 0..<edit.deleteCount {
             textDocumentProxy.deleteBackward()
@@ -345,8 +385,10 @@ final class KeyboardViewController: UIInputViewController {
         stopDeleteRepeat()
         deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
             self?.deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                self?.player.play(.press, .backspace)
-                self?.deleteBackward()
+                guard let self else { return }
+                self.player.play(.press, .backspace)
+                if self.compositionIsStale() { self.commitComposition() }
+                self.deleteBackward()
             }
         }
     }
