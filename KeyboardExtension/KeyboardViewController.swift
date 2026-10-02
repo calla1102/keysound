@@ -132,7 +132,8 @@ final class KeyboardViewController: UIInputViewController {
         rowsStack.translatesAutoresizingMaskIntoConstraints = false
         touchView.addSubview(rowsStack)
         NSLayoutConstraint.activate([
-            rowsStack.topAnchor.constraint(equalTo: touchView.topAnchor, constant: 8),
+            // 시스템 키보드 배경의 둥근 위쪽 모서리가 첫 줄 위로 드러나도록 여백을 둔다
+            rowsStack.topAnchor.constraint(equalTo: touchView.topAnchor, constant: 16),
             rowsStack.leadingAnchor.constraint(equalTo: touchView.leadingAnchor, constant: 3),
             rowsStack.trailingAnchor.constraint(equalTo: touchView.trailingAnchor, constant: -3),
             rowsStack.bottomAnchor.constraint(equalTo: touchView.bottomAnchor, constant: -4),
