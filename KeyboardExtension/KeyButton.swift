@@ -32,6 +32,12 @@ final class KeyButton: UIButton {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // 그림자 모양을 미리 알려 줘야 키마다 offscreen 렌더링을 하지 않는다
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+    }
+
     override var isHighlighted: Bool {
         didSet { backgroundColor = isHighlighted ? pressedColor : normalColor }
     }

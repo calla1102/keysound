@@ -53,7 +53,10 @@ public struct HangulAutomaton {
         syllable = Syllable()
         for key in keys {
             guard case .merged(let next) = Self.step(syllable, key) else {
-                preconditionFailure("조합 기록 재생 중 음절이 분리됨: \(keys)")
+                // 전이 규칙상 도달하지 않는다. 키보드가 죽지 않도록 조합 중 글자를 지우고 끝낸다
+                assertionFailure("조합 기록 재생 중 음절이 분리됨: \(keys)")
+                commit()
+                return TextEdit(deleteCount: 1, insert: "")
             }
             syllable = next
         }

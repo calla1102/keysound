@@ -32,6 +32,8 @@ final class KeyboardViewController: UIInputViewController {
         view.backgroundColor = Palette.background
 
         rowsStack.axis = .vertical
+        // 시스템이 정한 키보드 높이가 콘텐츠와 달라도 모든 줄이 같은 높이로 늘거나 준다
+        rowsStack.distribution = .fillEqually
         rowsStack.spacing = Metric.rowSpacing
         rowsStack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(rowsStack)
@@ -49,6 +51,10 @@ final class KeyboardViewController: UIInputViewController {
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
         automaton.commit()
+        if shiftOn {
+            shiftOn = false
+            refreshLabels()
+        }
         if showsGlobe != needsInputModeSwitchKey {
             showsGlobe = needsInputModeSwitchKey
             rebuildKeys()
@@ -86,6 +92,8 @@ final class KeyboardViewController: UIInputViewController {
             let height = row.heightAnchor.constraint(equalToConstant: Metric.rowHeight)
             height.priority = .defaultHigh + 1
             height.isActive = true
+            // 다른 줄의 기준 키와 폭 제약을 걸려면 먼저 같은 뷰 계층에 붙어 있어야 한다
+            rowsStack.addArrangedSubview(row)
 
             // kbsim 녹음은 줄(R0~R4)마다 음높이가 다르다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
             let soundRow = index == rows.count - 1 ? 4 : index + 1
@@ -96,7 +104,10 @@ final class KeyboardViewController: UIInputViewController {
                 switch spec.width {
                 case .units(let units):
                     if let unitKey {
-                        keyView.widthAnchor.constraint(equalTo: unitKey.widthAnchor, multiplier: units).isActive = true
+                        // 폭이 0인 초기 레이아웃에서 충돌하지 않도록 required 보다 한 단계 낮춘다
+                        let width = keyView.widthAnchor.constraint(equalTo: unitKey.widthAnchor, multiplier: units)
+                        width.priority = .required - 1
+                        width.isActive = true
                     } else {
                         unitKey = keyView
                     }
@@ -107,7 +118,6 @@ final class KeyboardViewController: UIInputViewController {
                     flexibles.append(keyView)
                 }
             }
-            rowsStack.addArrangedSubview(row)
         }
         refreshLabels()
     }
@@ -170,7 +180,7 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func keyUpInside(_ key: KeyButton) {
         player.play(.release, key.soundKind)
         stopDeleteRepeat()
-        perform(key.spec.action)
+        handle(key.spec.action)
     }
 
     @objc private func keyUpOutside(_ key: KeyButton) {
@@ -178,7 +188,7 @@ final class KeyboardViewController: UIInputViewController {
         stopDeleteRepeat()
     }
 
-    private func perform(_ action: KeyAction) {
+    private func handle(_ action: KeyAction) {
         switch action {
         case .character(let c):
             let key = shiftOn ? KeyboardLayout.shifted[c] ?? c : c
