@@ -34,6 +34,22 @@ final class KeyboardViewController: UIInputViewController {
     /// 빈 문자열은 「조합이 없던 상태」라 그 앞 문맥을 알 수 없다는 뜻이다.
     private var recentComposings: [(text: String, at: CFTimeInterval)] = []
 
+    // MARK: 스페이스 길게 누르기(커서 이동)
+    //
+    // 공백 입력 시점: 길게 눌러 커서 이동 모드로 갈 수 있으므로 스페이스는 keyDown 에서 바로 넣지 않고
+    // 「보류(pendingSpace)」했다가 (1) 판정 시간 안에 떼면 keyUp 에서, (2) 그 전에 다른 키가 눌리면 그 키보다 먼저 넣는다.
+    // (2) 덕분에 스페이스를 누른 채 다음 글자를 치는 롤오버에서도 「공백 → 글자」 순서가 유지된다.
+    // 보류 중 눌린 키의 소리·입력은 평소와 같다. 보류 때문에 늦어지는 건 스페이스 자신뿐(뗄 때까지).
+    // 이동 모드 중 다른 손가락의 키 터치는 소리·입력 모두 무시한다(ignoredTouches 로 뗄 때 소리도 막는다).
+    // 이동 칸마다 소리·진동은 내지 않는다(기본 키보드와 같다. 진동은 Full Access 없이는 불확실). 진입 때 press 음은 이미 났고 뗄 때 release 음이 난다.
+    private static let spaceLongPressDelay: TimeInterval = 0.4
+    private var pendingSpaceTouch: ObjectIdentifier?
+    private var longPressTimer: Timer?
+    private var cursorTouch: ObjectIdentifier?
+    private var cursorTracker = CursorDragTracker()
+    private var lastSpaceX: CGFloat = 0
+    private var ignoredTouches: Set<ObjectIdentifier> = []
+
     private enum Metric {
         static let rowHeight: CGFloat = 42
         static let rowSpacing: CGFloat = 10
@@ -53,8 +69,9 @@ final class KeyboardViewController: UIInputViewController {
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
-        touchView.onKeyDown = { [weak self] key in self?.keyDown(key) }
-        touchView.onKeyUp = { [weak self] key in self?.keyUp(key) }
+        touchView.onKeyDown = { [weak self] key, touch in self?.keyDown(key, touch) ?? false }
+        touchView.onKeyUp = { [weak self] key, touch in self?.keyUp(key, touch) }
+        touchView.onKeyMove = { [weak self] key, touch in self?.keyMove(key, touch) }
         view.addSubview(touchView)
         NSLayoutConstraint.activate([
             touchView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -97,6 +114,10 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillDisappear(animated)
         stopDeleteRepeat()
         contextRecheck?.cancel()
+        // 누른 스페이스는 떼기 전에 사라져도 입력으로 친다(터치 cancel 도 같다). 보류 전 keyDown 즉시 입력과 같은 결과다
+        flushPendingSpace()
+        endCursorMode()
+        ignoredTouches = []
         touchView.resetTouches()
     }
 
@@ -220,6 +241,8 @@ final class KeyboardViewController: UIInputViewController {
             key.addTarget(self, action: #selector(globeUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
             key.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
         } else {
+            // 이동 모드 중 레이어 전환으로 키를 다시 만들어도 라벨은 숨긴 채로
+            key.setLabelHidden(cursorTouch != nil)
             // 나머지는 KeyboardTouchView 가 터치를 받아 가장 가까운 키로 보낸다
             key.isUserInteractionEnabled = false
         }
@@ -264,8 +287,24 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - Touch
 
-    private func keyDown(_ key: KeyButton) {
+    /// 이 터치를 받아들였는지 돌려준다. 이동 모드 중 다른 키는 무시(false)해 눌림 표시도 켜지 않는다.
+    private func keyDown(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) -> Bool {
+        if cursorTouch != nil {
+            ignoredTouches.insert(touch.id)
+            return false
+        }
         player.play(.press, key.soundKind)
+        // 보류 중인 공백이 있으면 이 키보다 먼저 넣어 입력 순서를 지킨다
+        flushPendingSpace()
+        if key.spec.action == .space {
+            stopDeleteRepeat()
+            pendingSpaceTouch = touch.id
+            lastSpaceX = touch.x
+            longPressTimer = Timer.scheduledTimer(withTimeInterval: Self.spaceLongPressDelay, repeats: false) { [weak self] _ in
+                self?.beginCursorMode()
+            }
+            return true
+        }
         // 유예 중이라도 커서가 옮겨졌으면 조합을 끊어, 새 커서 앞 글자를 지우지 않게 한다
         if compositionIsStale() { commitComposition() }
         switch key.spec.action {
@@ -281,14 +320,24 @@ final class KeyboardViewController: UIInputViewController {
             stopDeleteRepeat()
             handle(key.spec.action)
         }
+        return true
     }
 
-    private func keyUp(_ key: KeyButton) {
+    private func keyUp(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) {
+        if ignoredTouches.remove(touch.id) != nil { return }
         player.play(.release, key.soundKind)
         switch key.spec.action {
+        case .space:
+            if cursorTouch == touch.id {
+                endCursorMode()
+            } else if pendingSpaceTouch == touch.id {
+                flushPendingSpace()
+            }
         case .backspace:
             // 다른 손가락이 아직 백스페이스를 누르고 있으면 반복을 이어 간다
-            if !touchView.hasActiveTouch(where: { $0.spec.action == .backspace }) { stopDeleteRepeat() }
+            // 이동 모드 중 눌러 무시된 백스페이스는 세지 않는다
+            let stillHeld = touchView.hasActiveTouch { key, id in key.spec.action == .backspace && !ignoredTouches.contains(id) }
+            if !stillHeld { stopDeleteRepeat() }
         case .layer:
             handle(key.spec.action)
         default:
@@ -296,11 +345,46 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    private func keyMove(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) {
+        if pendingSpaceTouch == touch.id { lastSpaceX = touch.x }
+        guard cursorTouch == touch.id else { return }
+        let cells = cursorTracker.move(to: touch.x)
+        if cells != 0 { textDocumentProxy.adjustTextPosition(byCharacterOffset: cells) }
+    }
+
+    private func flushPendingSpace() {
+        guard pendingSpaceTouch != nil else { return }
+        longPressTimer?.invalidate()
+        longPressTimer = nil
+        pendingSpaceTouch = nil
+        handle(.space)
+    }
+
+    /// 판정 시간 동안 스페이스가 눌려 있었다. 공백은 넣지 않고 조합만 확정한 뒤 이동 모드로 간다.
+    private func beginCursorMode() {
+        guard let touch = pendingSpaceTouch else { return }
+        longPressTimer = nil
+        pendingSpaceTouch = nil
+        cursorTouch = touch
+        commitComposition()
+        cursorTracker.begin(at: lastSpaceX)
+        keyButtons.forEach { $0.setLabelHidden(true) }
+    }
+
+    private func endCursorMode() {
+        guard cursorTouch != nil else { return }
+        cursorTouch = nil
+        keyButtons.forEach { $0.setLabelHidden(false) }
+    }
+
+    // 🌐 는 시스템 핸들러가 직접 받아 이동 모드 중에도 키보드 전환을 막을 수 없다(의도된 예외). 소리만 다른 키처럼 막는다.
     @objc private func globeDown(_ key: KeyButton) {
+        guard cursorTouch == nil else { return }
         player.play(.press, key.soundKind)
     }
 
     @objc private func globeUp(_ key: KeyButton) {
+        guard cursorTouch == nil else { return }
         player.play(.release, key.soundKind)
     }
 
