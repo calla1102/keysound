@@ -66,6 +66,7 @@
 6. **라벨**: 저장소 기본 라벨을 쓴다 — `feat:`→`enhancement`, `fix:`→`bug`, `docs:`→`documentation`, `chore:`·`refactor:`→ 라벨 없음. 이슈 라벨도 같은 매핑.
 
 7. **PR 생성** — 반드시 `KS_PR_OK=1` 마커를 붙이고 본문은 `--body-file` 로 넘긴다(마커가 없거나 본문 파일에 `Closes #N` 이 없으면 훅이 차단).
+   ⚠️ 훅은 명령 **실행 전**에 본문 파일을 읽는다. 본문 파일은 `Write` 툴 등으로 **앞 단계에서 먼저** 만든다. 같은 명령 안의 heredoc 으로 만들면 훅이 파일을 못 읽어 차단된다.
 
    ```bash
    KS_PR_OK=1 gh pr create --base main --title "<타입>: <제목>" \
