@@ -77,10 +77,6 @@ final class KeyButton: UIButton {
 
 /// iOS 기본 키보드와 비슷한 색. 라이트·다크 모드를 따른다.
 enum Palette {
-    static let background = UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(white: 0.17, alpha: 1)
-        : UIColor(red: 0.82, green: 0.83, blue: 0.86, alpha: 1)
-    }
     static let characterKey = UIColor { $0.userInterfaceStyle == .dark
         ? UIColor(white: 0.42, alpha: 1)
         : .white

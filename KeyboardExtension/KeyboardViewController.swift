@@ -103,7 +103,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = Palette.background
+        // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. UIKit hit-test 는 배경색을 보지 않지만,
+        // 완전 투명(.clear) 영역의 터치가 익스텐션 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 0.001 을 쓴다.
+        view.backgroundColor = UIColor(white: 0, alpha: 0.001)
         if let raw = UserDefaults.standard.string(forKey: Self.lastLayerKey),
            let saved = KeyboardLayer(rawValue: raw), saved.isLetters {
             currentLayer = saved
@@ -130,7 +132,8 @@ final class KeyboardViewController: UIInputViewController {
         rowsStack.translatesAutoresizingMaskIntoConstraints = false
         touchView.addSubview(rowsStack)
         NSLayoutConstraint.activate([
-            rowsStack.topAnchor.constraint(equalTo: touchView.topAnchor, constant: 8),
+            // 시스템 키보드 배경의 둥근 위쪽 모서리가 첫 줄 위로 드러나도록 여백을 둔다
+            rowsStack.topAnchor.constraint(equalTo: touchView.topAnchor, constant: 16),
             rowsStack.leadingAnchor.constraint(equalTo: touchView.leadingAnchor, constant: 3),
             rowsStack.trailingAnchor.constraint(equalTo: touchView.trailingAnchor, constant: -3),
             rowsStack.bottomAnchor.constraint(equalTo: touchView.bottomAnchor, constant: -4),
