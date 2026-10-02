@@ -42,7 +42,8 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 번들 wav 파일 이름 접두어. nil 이면 녹음 파일이 없다(소리 끔).
+    /// 번들 wav 파일 이름 접두어. nil 이면 소리가 없다(소리 끔).
+    /// 파일 이름 규칙 `<접두어>_<press|release>_<이름>` 은 `KeySoundPlayer.fileName`·`previewFileName`·project.yml 앱 타깃 includes 가 함께 따른다.
     var filePrefix: String? {
         switch self {
         case .brown: "brown"
@@ -56,16 +57,21 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     }
 
     /// 스페이스·엔터·백스페이스 전용 녹음이 있는지. 없으면 일반 키 소리를 쓴다.
+    /// 새 축을 추가하면 여기서 반드시 정한다(true 인데 파일이 없으면 그 키는 무음).
     var hasSpecialKeySounds: Bool {
-        self != .blue
+        switch self {
+        case .brown, .red, .black, .topre: true
+        case .blue, .click, .off: false
+        }
     }
 
     /// 메인 앱 미리듣기용 번들 wav (두 타깃 모두에 들어 있다).
+    /// 이름을 바꾸면 project.yml 앱 타깃의 `*_press_generic_r2.wav` includes 도 맞춘다.
     var previewFileName: String? {
         switch self {
-        case .off: nil
+        case .brown, .blue, .red, .black, .topre: filePrefix.map { "\($0)_press_generic_r2" }
         case .click: "click_press"
-        default: filePrefix.map { "\($0)_press_generic_r2" }
+        case .off: nil
         }
     }
 }

@@ -31,7 +31,10 @@ final class KeySoundPlayer {
         for phase in [Phase.press, .release] {
             for kind in kinds {
                 guard let name = Self.fileName(sound, phase, kind), ids[name] == nil else { continue }
-                guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else { continue }
+                guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else {
+                    assertionFailure("번들에 \(name).wav 가 없다")
+                    continue
+                }
                 var id: SystemSoundID = 0
                 if AudioServicesCreateSystemSoundID(url as CFURL, &id) == kAudioServicesNoError {
                     ids[name] = id
@@ -51,6 +54,7 @@ final class KeySoundPlayer {
     }
 
     /// 번들 안 wav 파일 이름(확장자 제외). nil 이면 그 동작엔 소리가 없다.
+    /// 규칙을 바꾸면 `SwitchSound.previewFileName` 과 project.yml 앱 타깃 includes 도 맞춘다.
     private static func fileName(_ sound: SwitchSound, _ phase: Phase, _ kind: Kind) -> String? {
         guard let prefix = sound.filePrefix else { return nil }
         if sound == .click {

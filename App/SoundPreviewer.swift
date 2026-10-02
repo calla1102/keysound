@@ -14,7 +14,10 @@ final class SoundPreviewer {
         guard let name = sound.previewFileName else { return }
         if current?.name != name {
             dispose()
-            guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else { return }
+            guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else {
+                assertionFailure("앱 번들에 \(name).wav 가 없다 — project.yml 앱 타깃 includes 확인")
+                return
+            }
             var id: SystemSoundID = 0
             guard AudioServicesCreateSystemSoundID(url as CFURL, &id) == kAudioServicesNoError else { return }
             current = (name, id)
