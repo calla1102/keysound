@@ -33,8 +33,6 @@ final class KeyboardViewController: UIInputViewController {
     /// 최근 우리가 만든 조합 글자와 시각(오래된 순). 유예 중 호스트 문맥은 이 중 하나로 끝나는 옛 값일 수 있다.
     /// 빈 문자열은 「조합이 없던 상태」라 그 앞 문맥을 알 수 없다는 뜻이다.
     private var recentComposings: [(text: String, at: CFTimeInterval)] = []
-    /// 백스페이스로 판정돼 아직 떼지 않은 터치 수. 0 이 될 때만 반복을 멈춘다.
-    private var backspaceTouches = 0
 
     private enum Metric {
         static let rowHeight: CGFloat = 42
@@ -98,14 +96,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopDeleteRepeat()
-        backspaceTouches = 0
         contextRecheck?.cancel()
         touchView.resetTouches()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        touchView.refreshKeyFrames()
     }
 
     /// 사용자가 커서를 옮기거나 앱이 글을 바꾸면 조합을 확정한다. 커서 이동은 selectionDidChange 로도 들어온다.
@@ -278,7 +270,6 @@ final class KeyboardViewController: UIInputViewController {
         if compositionIsStale() { commitComposition() }
         switch key.spec.action {
         case .backspace:
-            backspaceTouches += 1
             deleteBackward()
             startDeleteRepeat()
         case .layer:
@@ -296,8 +287,8 @@ final class KeyboardViewController: UIInputViewController {
         player.play(.release, key.soundKind)
         switch key.spec.action {
         case .backspace:
-            backspaceTouches = max(0, backspaceTouches - 1)
-            if backspaceTouches == 0 { stopDeleteRepeat() }
+            // 다른 손가락이 아직 백스페이스를 누르고 있으면 반복을 이어 간다
+            if !touchView.hasActiveTouch(where: { $0.spec.action == .backspace }) { stopDeleteRepeat() }
         case .layer:
             handle(key.spec.action)
         default:

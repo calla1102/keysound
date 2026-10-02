@@ -18,7 +18,7 @@ final class KeyboardTouchView: UIView {
     var onKeyUp: ((KeyButton) -> Void)?
 
     private var activeTouches: [UITouch: KeyButton] = [:]
-    /// 키 프레임(self 좌표계) 캐시. 터치마다 변환하지 않도록 레이아웃이 끝날 때 갱신한다.
+    /// 키 프레임(self 좌표계) 캐시. 레이아웃이 바뀌면 무효화만 하고, 다음 터치에서 하위 레이아웃을 마친 뒤 다시 계산한다.
     private var keyFrames: [CGRect] = []
     private var framesDirty = true
 
@@ -34,19 +34,19 @@ final class KeyboardTouchView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        refreshKeyFrames()
+        // 여기서 계산하면 손자(행 스택 → 키)가 아직 배치되기 전 frame 을 담을 수 있다
+        framesDirty = true
     }
 
-    /// 키 프레임 캐시를 다시 계산한다. 자식(스택뷰) 레이아웃이 끝난 뒤에도 컨트롤러가 한 번 더 불러 준다.
-    func refreshKeyFrames() {
+    private func refreshKeyFrames() {
         keyFrames = keys.map { $0.superview == nil ? CGRect.zero : $0.convert($0.bounds, to: self) }
         framesDirty = false
     }
 
-    /// 터치 지점에 대응하는 키. 레이아웃이 밀려 있으면 먼저 반영한다.
+    /// 터치 지점에 대응하는 키. 밀린 레이아웃을 하위 트리까지 반영한 뒤 캐시를 쓴다.
     private func nearestKey(at point: CGPoint) -> KeyButton? {
         layoutIfNeeded()
-        if framesDirty || keyFrames.count != keys.count { refreshKeyFrames() }
+        if framesDirty { refreshKeyFrames() }
         return NearestKey.index(at: point, in: keyFrames).map { keys[$0] }
     }
 
@@ -79,6 +79,11 @@ final class KeyboardTouchView: UIView {
     func resetTouches() {
         activeTouches.values.forEach { $0.isHighlighted = false }
         activeTouches = [:]
+    }
+
+    /// 아직 떼지 않은 터치 중 조건에 맞는 키가 있는지. `onKeyUp` 시점에는 뗀 터치가 이미 빠져 있다.
+    func hasActiveTouch(where predicate: (KeyButton) -> Bool) -> Bool {
+        activeTouches.values.contains(where: predicate)
     }
 
     /// timestamp 순, 같으면 x 좌표 순. 같은 이벤트의 터치는 timestamp 가 같을 수 있어 보조 기준이 필요하다.
