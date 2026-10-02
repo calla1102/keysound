@@ -21,6 +21,8 @@ settings:
 packages:
   HangulEngine:
     path: Packages/HangulEngine
+  KeyboardCore:
+    path: Packages/KeyboardCore
 
 targets:
   Keysound:
@@ -87,3 +89,4 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
     dependencies:
       - package: HangulEngine
+      - package: KeyboardCore
