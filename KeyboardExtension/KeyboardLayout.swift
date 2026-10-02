@@ -71,7 +71,7 @@ enum KeyboardLayout {
         case .moreSymbols:
             return [
                 chars("[]{}#%^*+="),
-                chars("_\\|~<>€£¥•"),
+                chars("_\\|~<>$£¥•"),
                 [KeySpec(.layer(.symbols), width: Self.sideKeyWidth)] + chars(".,?!'", width: .flexible) + [KeySpec(.backspace, width: Self.sideKeyWidth)],
                 bottomRow(toggle: lettersLayer, language: lettersLayer.otherLanguage, showsGlobe: showsGlobe),
             ]
