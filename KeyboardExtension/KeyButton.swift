@@ -50,6 +50,12 @@ final class KeyButton: UIButton {
         backgroundColor = isHighlighted ? pressedColor : normalColor
     }
 
+    /// 스페이스 커서 이동 모드에서 라벨(글자·아이콘)을 숨긴다. 키 배경은 그대로 둬 트랙패드처럼 보인다.
+    func setLabelHidden(_ hidden: Bool) {
+        titleLabel?.alpha = hidden ? 0 : 1
+        imageView?.alpha = hidden ? 0 : 1
+    }
+
     func setLabel(title: String? = nil, symbol: String? = nil) {
         setTitle(title, for: .normal)
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)

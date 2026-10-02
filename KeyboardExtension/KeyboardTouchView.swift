@@ -14,8 +14,16 @@ final class KeyboardTouchView: UIView {
             setNeedsLayout()
         }
     }
-    var onKeyDown: ((KeyButton) -> Void)?
-    var onKeyUp: ((KeyButton) -> Void)?
+    /// 콜백에 넘기는 터치 정보. `id` 는 같은 손가락의 down·move·up 을 이어 주고, `x` 는 이 뷰 좌표계의 가로 위치.
+    struct TouchInfo {
+        let id: ObjectIdentifier
+        let x: CGFloat
+    }
+
+    var onKeyDown: ((KeyButton, TouchInfo) -> Void)?
+    var onKeyUp: ((KeyButton, TouchInfo) -> Void)?
+    /// 키를 누른 채 손가락이 움직였다(그 터치가 처음 누른 키 기준). 스페이스 커서 이동에 쓴다.
+    var onKeyMove: ((KeyButton, TouchInfo) -> Void)?
 
     private var activeTouches: [UITouch: KeyButton] = [:]
     /// 키 프레임(self 좌표계) 캐시. 레이아웃이 바뀌면 무효화만 하고, 다음 터치에서 하위 레이아웃을 마친 뒤 다시 계산한다.
@@ -63,8 +71,19 @@ final class KeyboardTouchView: UIView {
             guard let key = nearestKey(at: touch.location(in: self)) else { continue }
             activeTouches[touch] = key
             key.isHighlighted = true
-            onKeyDown?(key)
+            onKeyDown?(key, info(touch))
         }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        for touch in ordered(touches) {
+            guard let key = activeTouches[touch] else { continue }
+            onKeyMove?(key, info(touch))
+        }
+    }
+
+    private func info(_ touch: UITouch) -> TouchInfo {
+        TouchInfo(id: ObjectIdentifier(touch), x: touch.location(in: self).x)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -98,7 +117,7 @@ final class KeyboardTouchView: UIView {
         for touch in ordered(touches) {
             guard let key = activeTouches.removeValue(forKey: touch) else { continue }
             key.isHighlighted = false
-            onKeyUp?(key)
+            onKeyUp?(key, info(touch))
         }
     }
 }
