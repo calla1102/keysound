@@ -37,7 +37,8 @@ final class KeyboardViewController: UIInputViewController {
     }
     private var deleteTimer: Timer?
     private var deletePressTime: CFTimeInterval = 0
-    private var jamoTicks = 0
+    /// 이번 누름에서 조합 중 자모 단위로 지운 틱 수. 누름이 끝나면(stopDeleteRepeat) 0 으로 돌아간다.
+    private var jamoTicksThisPress = 0
     /// 단어 단계에서 우리가 지운 만큼 줄여 가는 커서 앞 문맥. nil 이면 다시 읽어야 한다.
     private var wordContext: String?
     /// 우리 편집 도중 textDidChange 가 불려도 조합을 끊지 않기 위한 표시
@@ -94,6 +95,12 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     // MARK: - Lifecycle
+
+    deinit {
+        deleteTimer?.invalidate()
+        longPressTimer?.invalidate()
+        contextRecheck?.cancel()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -630,13 +637,13 @@ final class KeyboardViewController: UIInputViewController {
         player.play(.press, .backspace)
         if compositionIsStale() { commitComposition() }
         if automaton.isComposing {
-            if jamoTicks >= DeleteRepeat.jamoTicksBeforeSyllable {
+            if jamoTicksThisPress >= DeleteRepeat.jamoTicksBeforeSyllable {
                 // 같은 음절이 계속 남아 있다 — 조합을 확정하고 음절째로 지운다
                 commitComposition()
                 deleteBackward()
                 return
             }
-            jamoTicks += 1
+            jamoTicksThisPress += 1
         }
         deleteBackward()
     }
@@ -652,16 +659,34 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func wordRepeatTick() {
+        let now = CACurrentMediaTime()
+        if let cached = wordContext, now - lastEditTime >= Self.contextGrace {
+            // 유예가 지났으면 호스트 문맥이 최신이다 — 누르는 도중 외부에서 커서·텍스트가 바뀌어 캐시가 틀어졌는지 대조한다.
+            // 한계: 캐시가 있다는 건 직전 틱이 지웠다는 뜻이고 단어 틱 간격(wordInterval)이 유예보다 짧아,
+            // 이 분기는 메인 스레드가 유예 이상 멈췄을 때만 도는 방어 코드다. 연속 삭제 중 외부 변경은 잡지 못한다.
+            // 유예 안에서 읽으면 호스트가 갱신 전인 옛 문맥이라 과삭제하므로 감수한다.
+            guard let actual = textDocumentProxy.documentContextBeforeInput else {
+                startPlainRepeat()
+                return
+            }
+            if !actual.hasSuffix(cached) { wordContext = nil }
+        }
         if wordContext == nil {
-            // 방금 한 편집이 호스트 문맥에 반영되기 전이면 이번 틱은 건너뛴다(옛 문맥으로 과삭제 방지)
-            if CACurrentMediaTime() - lastEditTime < Self.contextGrace { return }
-            wordContext = textDocumentProxy.documentContextBeforeInput ?? ""
+            // 방금 한 편집이 호스트 문맥에 반영되기 전이면 이번 틱은 건너뛴다(옛 문맥으로 과삭제 방지).
+            // 단계 전환 직후나 문맥을 다 지운 직후에 약 0.3초 비는 것은 이 유예 때문에 의도된 동작이다(호스트 갱신 지연이 있는 한 못 줄인다).
+            if now - lastEditTime < Self.contextGrace { return }
+            guard let read = textDocumentProxy.documentContextBeforeInput else {
+                // nil 은 문맥을 못 읽는 앱(빈 문맥 "" 과 다르다) — 단어 단위를 포기하고 문자 반복 속도로 지운다
+                startPlainRepeat()
+                return
+            }
+            wordContext = read
         }
         player.play(.press, .backspace)
         var context = wordContext ?? ""
         let count = WordDeletion.count(before: context)
         if count == 0 {
-            // 문맥이 비었거나 읽을 수 없다 — 한 글자씩 지우고 다음 틱에 다시 읽는다
+            // WordDeletion.count 가 0 인 건 빈 문자열뿐이므로 문맥이 "" 다 — 줄 맨 앞 등이라 한 글자(줄바꿈일 수 있다)만 지우고 다음 틱에 다시 읽는다
             textDocumentProxy.deleteBackward()
             lastEditTime = CACurrentMediaTime()
             wordContext = nil
@@ -673,10 +698,26 @@ final class KeyboardViewController: UIInputViewController {
         lastEditTime = CACurrentMediaTime()
     }
 
+    /// 문맥을 읽을 수 없는 앱용 — 조합은 이미 확정했으므로 문자 간격으로 한 글자씩 지운다.
+    private func startPlainRepeat() {
+        deleteTimer?.invalidate()
+        wordContext = nil
+        deleteTimer = Timer.scheduledTimer(withTimeInterval: DeleteRepeat.charInterval, repeats: true) { [weak self] _ in
+            self?.plainRepeatTick()
+        }
+        plainRepeatTick()
+    }
+
+    private func plainRepeatTick() {
+        player.play(.press, .backspace)
+        textDocumentProxy.deleteBackward()
+        lastEditTime = CACurrentMediaTime()
+    }
+
     private func stopDeleteRepeat() {
         deleteTimer?.invalidate()
         deleteTimer = nil
-        jamoTicks = 0
+        jamoTicksThisPress = 0
         wordContext = nil
     }
 }
