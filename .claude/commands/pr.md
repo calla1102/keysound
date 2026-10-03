@@ -38,11 +38,14 @@
 
    ```bash
    xcodegen generate
+   # App/·Shared/·Tests/·project.yml 이 바뀌었으면 test(앱 빌드를 겸함), 아니면 build — 훅과 같은 판정
+   if git diff --name-only "$(git merge-base origin/main HEAD)...HEAD" | grep -Eq '^(App|Shared|Tests)/|^project\.yml$'; then
+     SIM=$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | grep -oE '[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}')
+     if [ -n "$SIM" ]; then ACTION=test; DEST="platform=iOS Simulator,id=$SIM"
+     else ACTION=build-for-testing; DEST='generic/platform=iOS Simulator'; fi   # 시뮬레이터 없으면 컴파일만(본문에 「테스트 미실행」)
+   else ACTION=build; DEST='generic/platform=iOS Simulator'; fi
    xcodebuild -project Keysound.xcodeproj -scheme Keysound \
-     -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-   # 앱 유닛 테스트(App/·Shared/·Tests/ 변경 시 필수, 시뮬레이터 없으면 build-for-testing 으로 대체)
-   xcodebuild -project Keysound.xcodeproj -scheme Keysound \
-     -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
+     -destination "$DEST" CODE_SIGNING_ALLOWED=NO "$ACTION"
    git diff --name-only "$(git merge-base origin/main HEAD)...HEAD" | sed -nE 's#^(Packages/[^/]+)/.*#\1#p' | sort -u
    # 위에서 나온 패키지마다
    (cd Packages/<패키지> && swift test)
