@@ -139,3 +139,23 @@ extension SwitchSound {
         }
     }
 }
+
+/// 번들 글꼴 한 종의 출처(자판 디자인 「픽셀」). 근거는 ThirdParty/CREDITS.md 「글꼴」과 ThirdParty/galmuri/OFL.txt.
+struct FontCredit: Equatable {
+    let name: String
+    let author: String
+    let copyright: String
+    let licenseName: String
+    let licenseURL: URL
+    let sourceURL: URL
+    let note: String
+
+    static let galmuri = FontCredit(
+        name: "갈무리11 (Galmuri11)",
+        author: "Lee Minseo",
+        copyright: "Copyright (c) 2019–2025 Lee Minseo (quiple@quiple.dev)",
+        licenseName: "SIL Open Font License 1.1",
+        licenseURL: URL(string: "https://openfontlicense.org")!,
+        sourceURL: URL(string: "https://github.com/quiple/galmuri")!,
+        note: "「픽셀」 자판 디자인에 원본 그대로(수정 없이) 포함함")
+}

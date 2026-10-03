@@ -23,9 +23,35 @@ struct CreditsView: View {
                     }
                 }
             }
+
+            Section("글꼴") {
+                FontCreditRow(credit: .galmuri)
+            }
         }
         .navigationTitle("출처 및 라이선스")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct FontCreditRow: View {
+    let credit: FontCredit
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(credit.name).font(.headline)
+            Text(credit.copyright)
+                .font(.footnote)
+            Text("라이선스: \(credit.licenseName)")
+            Link(credit.licenseURL.absoluteString, destination: credit.licenseURL)
+                .font(.footnote)
+            Text(credit.note)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+        }
+        Link(destination: credit.sourceURL) {
+            Label("GitHub quiple/galmuri", systemImage: "arrow.up.right.square")
+        }
     }
 }
 

@@ -17,7 +17,7 @@ final class AlternatePopupView: UIView {
             let label = UILabel()
             label.text = String(c)
             label.textAlignment = .center
-            label.font = .systemFont(ofSize: 24)
+            label.font = theme.uiFont(systemSize: 24)
             label.textColor = theme.dynamicColor(\.text)
             label.layer.cornerRadius = 6
             label.layer.masksToBounds = true

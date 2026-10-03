@@ -341,7 +341,11 @@ final class KeyboardViewController: UIInputViewController {
     private func rebuildKeys() {
         rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         keyButtons = []
-        defer { touchView.keys = keyButtons }
+        defer {
+            touchView.keys = keyButtons
+            // 레이어 전환은 뷰 크기가 그대로라 viewDidLayoutSubviews 가 안 불릴 수 있다. 키 프레임을 바로 잡고 위치를 넘긴다
+            updateHorizontalPositions()
+        }
 
         let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe, lettersLayer: lettersLayer,
                                       accessories: profile?.accessoryKeys ?? [])
@@ -360,8 +364,10 @@ final class KeyboardViewController: UIInputViewController {
             // 눌림 소리는 줄(R0~R4)마다 다른 변주를 쓴다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
             let soundRow = index == rows.count - 1 ? 4 : index + 1
             var flexibles: [UIView] = []
-            for spec in specs {
-                let keyView = spec.action == .spacer ? UIView() : makeKey(spec, soundRow: soundRow)
+            let estimates = theme.paletteMode == .cycle ? [] : Self.estimatedCenters(of: specs)
+            for (specIndex, spec) in specs.enumerated() {
+                let estimate = estimates.isEmpty ? nil : (x: estimates[specIndex], y: (Double(index) + 0.5) / Double(rows.count))
+                let keyView = spec.action == .spacer ? UIView() : makeKey(spec, soundRow: soundRow, estimate: estimate)
                 row.addArrangedSubview(keyView)
                 switch spec.width {
                 case .units(let units):
@@ -384,7 +390,50 @@ final class KeyboardViewController: UIInputViewController {
         refreshLabels()
     }
 
-    private func makeKey(_ spec: KeySpec, soundRow: Int) -> KeyButton {
+    /// 레이아웃 전에 키 중심의 가로 위치 비율(0...1)을 폭 배수로 추정한다. flexible 은 남는 폭(없으면 4칸)을 나눠 갖는다.
+    /// 레이아웃이 끝나면 `updateHorizontalPositions` 가 실제 값으로 덮어쓰므로 첫 칠(색 깜빡임)을 줄이는 용도다.
+    static func estimatedCenters(of specs: [KeySpec], totalUnits: Double = 10) -> [Double] {
+        var fixed = 0.0, flexibleCount = 0.0
+        for spec in specs {
+            switch spec.width {
+            case .units(let u): fixed += Double(u)
+            case .flexible: flexibleCount += 1
+            }
+        }
+        let flexUnits = flexibleCount > 0 ? max(totalUnits - fixed, flexibleCount) / flexibleCount : 0
+        let widths = specs.map { spec -> Double in
+            if case .units(let u) = spec.width { Double(u) } else { flexUnits }
+        }
+        let total = max(widths.reduce(0, +), 0.001)
+        var cursor = 0.0
+        return widths.map { w in
+            defer { cursor += w }
+            return (cursor + w / 2) / total
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateHorizontalPositions()
+    }
+
+    /// 가로·세로 그라데이션 팔레트 프리셋에서 각 키 중심의 위치 비율을 키에 알려 준다.
+    /// x 는 키보드 뷰 폭 기준, y 는 키 행 묶음(`rowsStack`) 높이 기준(0=맨 위 행).
+    private func updateHorizontalPositions() {
+        guard theme.paletteMode != .cycle, view.bounds.width > 0 else { return }
+        // viewDidLayoutSubviews 시점엔 바로 아래 자식만 프레임이 확정돼 있다. 행·키까지 내려 레이아웃해야 현재 폭 기준 값이 된다
+        rowsStack.layoutIfNeeded()
+        guard rowsStack.bounds.height > 0 else { return }
+        for key in keyButtons where key.bounds.width > 0 {
+            let x = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: view).x
+            let y = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: rowsStack).y
+            key.setPalettePosition(
+                x: Double(min(max(x / view.bounds.width, 0), 1)),
+                y: Double(min(max(y / rowsStack.bounds.height, 0), 1)))
+        }
+    }
+
+    private func makeKey(_ spec: KeySpec, soundRow: Int, estimate: (x: Double, y: Double)?) -> KeyButton {
         let kind: KeySoundPlayer.Kind
         switch spec.action {
         case .space: kind = .space
@@ -393,7 +442,10 @@ final class KeyboardViewController: UIInputViewController {
         default: kind = .generic(row: soundRow)
         }
 
-        let key = KeyButton(spec: spec, soundKind: kind, theme: theme)
+        // 팔레트·무늬는 글자 키 순서(레이어를 새로 만들 때마다 0부터)로 고른다
+        let characterIndex = keyButtons.filter { if case .character = $0.spec.action { true } else { false } }.count
+        let key = KeyButton(spec: spec, soundKind: kind, theme: theme, characterIndex: characterIndex,
+                            estimatedPosition: estimate)
         if currentLayer == .symbols || currentLayer == .moreSymbols, case .character(let c) = spec.action {
             key.alternates = AlternateCharacters.alternates(for: c)
         }
