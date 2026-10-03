@@ -10,5 +10,5 @@ https://makotohiramatsu.itch.io/press-click-free
 내려받은 zip(36개) 중 키보드 눌림 KEY_PRESS_*.wav 가운데 앱이 쓰는 9개만 이 폴더에 둔다.
 KEY_SEQUENCE_*·마우스 CLICK_* 는 쓰지 않아 제외했다. zip 안에 별도 라이선스·readme 파일은 없었다.
 
-앱 안 표기(CC BY 4.0 §3(a)(1) 요건): 저작자 MakotoHiramatsu, 작품명 「Press and Click FREE」, 라이선스 CC BY 4.0 과 URI,
-변경 사실(키 단위로 잘라 리샘플·음량·페이드 가공). App/SoundCredits.swift·App/CreditsView.swift 참고.
+앱 안 표기(CC BY 4.0 §3(a)(1) 요건): 저작자 MakotoHiramatsu, 라이선스 CC BY 4.0 과 URI,
+변경 사실(키 단위로 잘라 리샘플·음량·페이드 가공). 작품명 「Press and Click FREE」는 필수는 아니나 상표명이 없어 함께 표기. App/SoundCredits.swift·App/CreditsView.swift 참고.

@@ -45,15 +45,22 @@ final class SoundCreditsTests: XCTestCase {
         XCTAssertEqual(Set(ccBy), [.topre, .membrane, .slim])
     }
 
-    /// 화면에 상표명을 쓰지 않는다(CLAUDE.md 라이선스 규칙). 링크 URL 은 화면 글자가 아니라 검사하지 않는다.
+    /// 화면에 상표명을 쓰지 않는다(CLAUDE.md 라이선스 규칙). 목록은 CREDITS.md 에 나오는 원본 키보드·장비 이름.
+    /// 링크 URL 은 화면 글자가 아니라 검사하지 않는다.
     func testNoTrademarkNamesOnScreen() {
-        let trademarks = ["Cherry", "Topre", "Gateron", "Kailh", "Logitech", "HP ", "IBM", "Apple"]
+        let trademarks = [
+            "Cherry", "Topre", "Gateron", "Kailh", "Logitech", "HP", "IBM", "Selectric", "Apple", "Mac", "MacBook",
+            "HHKB", "Keychron", "Unicomp", "Sennheiser", "Mionix", "Wobkey", "Rainy",
+        ]
         for sound in SwitchSound.allCases {
-            guard case let .recording(recorder, workTitle, links, _, modification)? = sound.credit?.origin else { continue }
-            let texts = [sound.displayName, recorder, workTitle ?? "", modification] + links.map(\.title)
+            var texts = [sound.displayName]
+            if case let .recording(recorder, workTitle, links, _, modification)? = sound.credit?.origin {
+                texts += [recorder, workTitle ?? "", modification] + links.map(\.title)
+            }
             for text in texts {
                 for mark in trademarks {
-                    XCTAssertFalse(text.localizedCaseInsensitiveContains(mark), "\(sound.rawValue): \(text)")
+                    let found = text.range(of: "\\b\(mark)\\b", options: [.regularExpression, .caseInsensitive]) != nil
+                    XCTAssertFalse(found, "\(sound.rawValue): \(text) 에 \(mark)")
                 }
             }
         }

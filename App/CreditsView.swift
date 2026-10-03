@@ -4,7 +4,8 @@ import SwiftUI
 /// 고정 높이·lineLimit 없이 Dynamic Type 에서 줄이 늘어나도록 둔다.
 struct CreditsView: View {
     private var sounds: [SwitchSound] {
-        SwitchSound.allCases.filter { $0.credit != nil }
+        // 메인 화면과 같은 묶음 순서
+        SwitchSound.Group.allCases.flatMap(\.sounds).filter { $0.credit != nil }
     }
 
     var body: some View {
