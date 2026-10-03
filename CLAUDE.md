@@ -39,6 +39,9 @@ xcodebuild -project Keysound.xcodeproj -scheme Keysound \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 # 패키지 테스트
 (cd Packages/HangulEngine && swift test)
+# 앱 유닛 테스트(KeysoundTests, 시뮬레이터 필요)
+xcodebuild -project Keysound.xcodeproj -scheme Keysound \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
 # 실기기(iPhone 17 Pro) 빌드·설치·실행
 xcodebuild -project Keysound.xcodeproj -scheme Keysound \
   -destination 'id=00008150-000628481407801C' -allowProvisioningUpdates build
@@ -55,7 +58,7 @@ xcrun devicectl device process launch --device 847FCEEC-D35D-580C-AA82-401FA740F
 - 브랜치: `main` 은 보호 브랜치(전역 훅이 직접 커밋·푸시 차단). 작업은 `feat/`·`fix/`·`chore/`·`refactor/`·`docs/` 브랜치에서 하고 PR 로 squash 머지한다.
 - 커밋·PR 제목: conventional 한국어 — `feat: 두벌식 오토마타 추가`. 대괄호 타입·`[#번호]` 접두어 없음.
 - `Co-Authored-By` 트레일러·`Generated with Claude Code` 푸터 금지(전역 규칙).
-- **커밋 전 검증은 `.claude/hooks/enforce-build.sh` 가 강제한다.** Swift·project.yml·리소스 변경이 있으면 바뀐 패키지 `swift test` + `xcodegen generate` + 시뮬레이터 빌드를 돌리고 실패 시 차단. 긴급 우회는 `SKIP_BUILD=1`.
+- **커밋 전 검증은 `.claude/hooks/enforce-build.sh` 가 강제한다.** Swift·project.yml·리소스 변경이 있으면 바뀐 패키지 `swift test` + `xcodegen generate` + 시뮬레이터 빌드(App·Shared·Tests·project.yml 변경 시 앱 유닛 테스트 `test` 로 대체)를 돌리고 실패 시 차단. 긴급 우회는 `SKIP_BUILD=1`.
 - **PR 생성은 `/pr` 로만.** `gh pr create` 직접 호출은 `enforce-pr-skill.sh` 가 차단한다.
 - 머지는 `gh pr merge <N> --squash`. `--delete-branch` 금지(`guard-pr-merge.sh` 가 차단).
 - GitHub: `calla1102/keysound` (private).
