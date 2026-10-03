@@ -384,6 +384,20 @@ final class KeyboardViewController: UIInputViewController {
         refreshLabels()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateHorizontalPositions()
+    }
+
+    /// `.horizontal` 팔레트 프리셋에서 각 키 중심의 가로 위치 비율(0...1)을 키에 알려 준다.
+    private func updateHorizontalPositions() {
+        guard theme.paletteMode == .horizontal, view.bounds.width > 0 else { return }
+        for key in keyButtons where key.bounds.width > 0 {
+            let center = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: view)
+            key.horizontalPosition = Double(center.x / view.bounds.width)
+        }
+    }
+
     private func makeKey(_ spec: KeySpec, soundRow: Int) -> KeyButton {
         let kind: KeySoundPlayer.Kind
         switch spec.action {
@@ -393,7 +407,9 @@ final class KeyboardViewController: UIInputViewController {
         default: kind = .generic(row: soundRow)
         }
 
-        let key = KeyButton(spec: spec, soundKind: kind, theme: theme)
+        // 팔레트·무늬는 글자 키 순서(레이어를 새로 만들 때마다 0부터)로 고른다
+        let characterIndex = keyButtons.filter { if case .character = $0.spec.action { true } else { false } }.count
+        let key = KeyButton(spec: spec, soundKind: kind, theme: theme, characterIndex: characterIndex)
         if currentLayer == .symbols || currentLayer == .moreSymbols, case .character(let c) = spec.action {
             key.alternates = AlternateCharacters.alternates(for: c)
         }
