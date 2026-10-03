@@ -290,6 +290,16 @@ def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, l
     cands = [c for c in cands if peak(c[0]) < 0.9][:pick]
     assert len(cands) >= 5, f"{prefix}: 겹치지 않는 눌림이 {len(cands)}개뿐이라 r0~r4 를 못 채운다 — 원본·임계값 확인"
     cands.sort(key=lambda c: float(np.abs(bx[c[0]:c[0] + 44]).max()))  # 시작이 깨끗한 순
+    # 줄별 변주가 되도록 이미 고른 것과 파형 상관이 0.9 이상이면(사실상 같은 타건) 건너뛴다
+    chosen = []
+    for c in cands:
+        seg = bx[c[0]:c[0] + 2000]
+        if all(abs(np.corrcoef(seg, bx[d[0]:d[0] + 2000])[0, 1]) < 0.9 for d in chosen):
+            chosen.append(c)
+        if len(chosen) == 5:
+            break
+    assert len(chosen) == 5, f"{prefix}: 서로 다른 눌림이 {len(chosen)}개뿐 — pick 을 늘리거나 임계값 확인"
+    cands = chosen + [c for c in cands if c not in chosen]
     # 뗌이 있으면 눌림은 뗌 직전까지만(뗌 소리가 눌림 파일에 섞이지 않게)
     press5 = [bx[o:o + (int(SR * press_ms / 1000) if r is None else min(int(SR * press_ms / 1000), r - o))] for o, r in cands[:5]]
     ref_r = rms(press5[0])
@@ -312,4 +322,4 @@ from_continuous("buckling", press_ms=90, rel_ms=50, denoise_db=10, loud_release=
 # ---------- 노트북 (justamudkip MacBook Pro 2021) ----------
 from_continuous("laptop", press_ms=60, rel_ms=40, peak_db=-3)  # 짧고 날카로워 에너지가 작아 +4dB
 # ---------- 윤활 리니어 (Techrul Rainy 75, 원본 mp3) ----------
-from_continuous("thock", press_ms=80, rel_ms=45)
+from_continuous("thock", press_ms=80, rel_ms=45, pick=12)
