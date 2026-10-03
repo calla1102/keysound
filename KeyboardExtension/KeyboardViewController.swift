@@ -189,6 +189,8 @@ final class KeyboardViewController: UIInputViewController {
         validateComposition()
     }
 
+    /// 조합을 끝낸다. 조합 글자는 이미 문서에 들어 있으므로 commit 은 오토마타 상태만 비우고 아무것도 삽입하지 않는다
+    /// (= 문서가 비어도 재삽입 없이 「버리기」와 같다). 문제는 호출 시점이므로 stale 판정이 이를 부른다.
     private func commitComposition() {
         automaton.commit()
         noteComposingState()
@@ -206,9 +208,17 @@ final class KeyboardViewController: UIInputViewController {
         return compositionGuard.isStale(
             composing: automaton.composing,
             before: textDocumentProxy.documentContextBeforeInput,
+            documentEmpty: documentIsEmpty,
             lastEditTime: lastEditTime,
             now: CACurrentMediaTime()
         )
+    }
+
+    /// 문서가 비었는가. UIKit 은 빈 문서에서 documentContextBeforeInput 으로 nil 을 주므로(빈 문자열이 아니다)
+    /// hasText 와 커서 뒤 문맥으로 「문맥을 못 읽는 앱」과 구분한다. 보내기·전체 삭제 직후가 여기에 해당한다.
+    private var documentIsEmpty: Bool {
+        let proxy = textDocumentProxy
+        return !proxy.hasText && (proxy.documentContextAfterInput ?? "").isEmpty
     }
 
     private func validateComposition() {

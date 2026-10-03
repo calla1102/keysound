@@ -38,15 +38,21 @@ public struct CompositionGuard: Equatable {
     /// 조합 중인 글자(`composing`)가 문맥(`before`)과 어긋났는지(커서가 옮겨졌거나 앱이 글을 바꿨는지).
     /// 조합 중이 아닐 때의 판단은 호출 쪽 몫이다.
     ///
-    /// - `before == nil`(문맥을 못 읽는 앱): 조합을 유지한다(stale 아님).
+    /// - `before == nil`: UIKit 은 문서가 비어도(보내기·전체 삭제) 빈 문자열이 아니라 nil 을 준다.
+    ///   그래서 `documentEmpty`(hasText == false 이고 커서 뒤 문맥도 없음)이면 비어 버린 문서로 보고,
+    ///   마지막 편집 뒤 유예가 지났을 때 stale 로 판정한다(유예 중엔 호스트 갱신이 늦은 것일 수 있어 유지).
+    ///   `documentEmpty` 가 아니면 문맥을 못 읽는 앱으로 보고 조합을 유지한다(stale 아님).
     /// - 문맥이 조합 글자로 끝나면 정상(stale 아님).
     /// - 불일치라도 마지막 편집(`lastEditTime`) 뒤 `grace` 안이면 호스트 문맥이 늦은 것일 수 있어 **불일치를 믿지 않는다**
     ///   (= stale 아님으로 본다). 단 최근 `recordWindow` 안의 기록 중 하나로 문맥이 끝나거나(옛 값),
     ///   빈 기록(조합 시작 직후라 옛 문맥을 알 수 없음)이 있을 때만 그렇다. 둘 다 없으면 stale.
     ///   그래서 조합을 확정한 직후 `recordWindow` 동안은 빈 기록이 남아 유예 판정이 더 관대하다.
     /// - 유예가 지난 불일치는 stale.
-    public func isStale(composing: String, before: String?, lastEditTime: Double, now: Double) -> Bool {
-        guard let before else { return false }
+    public func isStale(composing: String, before: String?, documentEmpty: Bool = false,
+                        lastEditTime: Double, now: Double) -> Bool {
+        guard let before else {
+            return documentEmpty && now - lastEditTime >= Self.grace
+        }
         if before.hasSuffix(composing) { return false }
         if now - lastEditTime < Self.grace {
             return !records.contains { now - $0.at <= Self.recordWindow && ($0.text.isEmpty || before.hasSuffix($0.text)) }

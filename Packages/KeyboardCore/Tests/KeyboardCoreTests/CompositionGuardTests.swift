@@ -85,4 +85,32 @@ final class CompositionGuardTests: XCTestCase {
         XCTAssertTrue(g.records.isEmpty)
         XCTAssertTrue(stale(g, before: "다른", edit: 0, now: 0.1))
     }
+
+    // MARK: 호스트가 문서를 비운 경우(#45)
+
+    func testEmptiedDocumentNilContextAfterGraceIsStale() {
+        // 보내기 직후: 문맥 nil + hasText false → 조합 버림
+        XCTAssertTrue(CompositionGuard().isStale(composing: "요", before: nil, documentEmpty: true, lastEditTime: 0, now: 1))
+    }
+
+    func testEmptiedDocumentWithinGraceIsNotStale() {
+        // 방금 우리가 편집했다면 호스트 갱신이 늦은 것일 수 있다(빈 문서 첫 글자 오탐 방지)
+        XCTAssertFalse(CompositionGuard().isStale(composing: "ㅇ", before: nil, documentEmpty: true, lastEditTime: 0, now: 0.1))
+    }
+
+    func testUnreadableContextWithTextIsKept() {
+        XCTAssertFalse(CompositionGuard().isStale(composing: "요", before: nil, documentEmpty: false, lastEditTime: 0, now: 1))
+    }
+
+    func testEmptyStringContextAfterGraceIsStale() {
+        XCTAssertTrue(CompositionGuard().isStale(composing: "요", before: "", lastEditTime: 0, now: 1))
+    }
+
+    func testContextEndingWithComposingStaysEvenIfDocumentEmptyFlag() {
+        XCTAssertFalse(CompositionGuard().isStale(composing: "요", before: "안녕하세요", documentEmpty: false, lastEditTime: 0, now: 1))
+    }
+
+    func testOtherFieldFocusContextIsStale() {
+        XCTAssertTrue(CompositionGuard().isStale(composing: "요", before: "다른 칸 글", lastEditTime: 0, now: 1))
+    }
 }
