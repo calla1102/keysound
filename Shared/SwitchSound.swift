@@ -1,15 +1,25 @@
 /// 키보드에서 고를 수 있는 타건음. rawValue 가 App Group 에 저장된다.
 enum SwitchSound: String, CaseIterable, Identifiable {
-    /// Foxfire- 녹음(Freesound 570754, CC0). 뗌은 눌림을 깎아 만든 틱
-    case brown
+    // allCases 순서 = 묶음 안 표시 순서(묶음 순서는 Group.allCases). 묶음 순서와 맞춰 두면 읽기 쉽다.
+
     /// UberBosser 녹음(Freesound 421581~421584, CC0). 스페이스·엔터·백스페이스 전용 녹음 없음 → 일반 키 소리로 대체
     case blue
+    /// SamsterBirdies 녹음(Freesound 489423, CC0)
+    case buckling
+    /// Foxfire- 녹음(Freesound 570754, CC0). 뗌은 눌림을 깎아 만든 틱
+    case brown
     /// Sadiquecat 녹음(Freesound 789628~789630, CC0)
     case red
     /// el_boss Gateron 흑축 녹음(Freesound 643559, CC0) + 잡음 제거
     case black
+    /// Techrul 녹음(Freesound 815614, CC0)
+    case thock
     /// MakotoHiramatsu HHKB 녹음(itch.io 「Press and Click FREE」, CC BY 4.0 — 앱 출처 표기 필수)
     case topre
+    /// Geoff-Bremner-Audio 녹음(Freesound 705787, CC BY 4.0 — 앱 출처 표기 필수)
+    case membrane
+    /// justamudkip 녹음(Freesound 853602, CC0)
+    case laptop
     /// 자체 합성 40ms 클릭
     case click
     case off
@@ -25,6 +35,10 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .red: "적축"
         case .black: "흑축"
         case .topre: "무접점"
+        case .buckling: "버클링 스프링"
+        case .membrane: "멤브레인"
+        case .laptop: "노트북"
+        case .thock: "도각 리니어"
         case .click: "기본 클릭"
         case .off: "소리 끔"
         }
@@ -37,6 +51,10 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .red: "걸림 없이 가볍고 조용한 리니어 축"
         case .black: "묵직하고 낮은 리니어 축"
         case .topre: "도톰하고 둔탁한 정전용량 무접점"
+        case .buckling: "스프링이 꺾이며 울리는 금속성 클릭"
+        case .membrane: "사무용 멤브레인 키보드의 가볍고 둔한 소리"
+        case .laptop: "노트북 가위식 키의 얇고 짧은 소리"
+        case .thock: "둔탁하게 도각거리는 커스텀 키보드 소리"
         case .click: "짧고 가벼운 합성음"
         case .off: "타건음 없이 입력만"
         }
@@ -51,6 +69,10 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .red: "red"
         case .black: "black"
         case .topre: "topre"
+        case .buckling: "buckling"
+        case .membrane: "membrane"
+        case .laptop: "laptop"
+        case .thock: "thock"
         case .click: "click"
         case .off: nil
         }
@@ -60,7 +82,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     /// 새 축을 추가하면 여기서 반드시 정한다(true 인데 파일이 없으면 그 키는 무음).
     var hasSpecialKeySounds: Bool {
         switch self {
-        case .brown, .red, .black, .topre: true
+        case .brown, .red, .black, .topre, .buckling, .membrane, .laptop, .thock: true
         case .blue, .click, .off: false
         }
     }
@@ -69,9 +91,41 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     /// 이름을 바꾸면 project.yml 앱 타깃의 `*_press_generic_r2.wav` includes 도 맞춘다.
     var previewFileName: String? {
         switch self {
-        case .brown, .blue, .red, .black, .topre: filePrefix.map { "\($0)_press_generic_r2" }
+        case .brown, .blue, .red, .black, .topre, .buckling, .membrane, .laptop, .thock: filePrefix.map { "\($0)_press_generic_r2" }
         case .click: "click_press"
         case .off: nil
+        }
+    }
+
+    /// 앱 목록의 묶음. 소리 특성 기준이며 선언 순서가 표시 순서다. 종류가 늘면 case 와 `group` 한 줄씩 추가한다.
+    enum Group: CaseIterable, Identifiable {
+        case clicky, tactile, linear, capacitiveAndMembrane, laptop, other
+
+        var id: Self { self }
+
+        var displayName: String {
+            switch self {
+            case .clicky: "클릭"
+            case .tactile: "택타일"
+            case .linear: "리니어"
+            case .capacitiveAndMembrane: "무접점·멤브레인"
+            case .laptop: "노트북"
+            case .other: "기타"
+            }
+        }
+
+        /// 이 묶음에 속한 소리. `SwitchSound.allCases` 순서를 따른다.
+        var sounds: [SwitchSound] { SwitchSound.allCases.filter { $0.group == self } }
+    }
+
+    var group: Group {
+        switch self {
+        case .blue, .buckling: .clicky
+        case .brown: .tactile
+        case .red, .black, .thock: .linear
+        case .topre, .membrane: .capacitiveAndMembrane
+        case .laptop: .laptop
+        case .click, .off: .other
         }
     }
 }
