@@ -51,6 +51,38 @@ final class AlternatePopupTests: XCTestCase {
         XCTAssertEqual(g.frame.minY, 0)
     }
 
+    func testFirstRowFingerOnKeySelectsBase() {
+        // 팝업이 키를 덮어도 손가락이 키 위에 그대로면 원래 문자
+        let key = CGRect(x: 100, y: 16, width: 36, height: 42)
+        let g = AlternatePopupGeometry(keyFrame: key, cellCount: 3, bounds: bounds)
+        XCTAssertEqual(g.candidate(at: CGPoint(x: 110, y: 40)), 0)
+    }
+
+    func testWideKeyUsesKeyWidthAsCell() {
+        let key = CGRect(x: 40, y: 170, width: 60, height: 42)
+        let g = AlternatePopupGeometry(keyFrame: key, cellCount: 3, bounds: bounds)
+        XCTAssertEqual(g.cellWidth, 60)
+        XCTAssertEqual(g.frame.width, 180)
+    }
+
+    func testTooManyCellsClampInsideBounds() {
+        // 뒤집어도 왼쪽으로 넘치면 경계 안으로 민다
+        let key = CGRect(x: 200, y: 120, width: 36, height: 42)
+        let g = AlternatePopupGeometry(keyFrame: key, cellCount: 12, bounds: bounds)
+        XCTAssertTrue(g.reversed)
+        XCTAssertEqual(g.frame.minX, AlternatePopupGeometry.edgeMargin)
+    }
+
+    func testSlotAndCandidateAreInverse() {
+        for keyX in [CGFloat(100), 340] {
+            let g = AlternatePopupGeometry(keyFrame: CGRect(x: keyX, y: 120, width: 36, height: 42), cellCount: 5, bounds: bounds)
+            for i in 0..<5 {
+                XCTAssertEqual(g.candidateIndex(forSlot: g.slot(forCandidate: i)), i)
+                XCTAssertEqual(g.slot(forCandidate: g.candidateIndex(forSlot: i)), i)
+            }
+        }
+    }
+
     func testFarVerticalMoveCancels() {
         let key = CGRect(x: 100, y: 120, width: 36, height: 42)
         let g = AlternatePopupGeometry(keyFrame: key, cellCount: 3, bounds: bounds)

@@ -29,6 +29,8 @@ final class KeyboardTouchView: UIView {
         let id: ObjectIdentifier
         let x: CGFloat
         let y: CGFloat
+        /// 시스템이 터치를 취소했다(뗀 게 아니다). `onKeyUp` 은 ended·cancelled 모두 이 콜백으로 온다.
+        var cancelled = false
     }
 
     /// 키를 눌렀다. 컨트롤러가 이 터치를 받아들이면 true — false(무시)면 눌림 표시를 켜지 않는다.
@@ -133,11 +135,11 @@ final class KeyboardTouchView: UIView {
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        finish(touches)
+        finish(touches, cancelled: false)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        finish(touches)
+        finish(touches, cancelled: true)
     }
 
     /// 키보드가 사라질 때 끝나지 않은 터치를 소리 없이 정리한다(시스템이 cancel 을 안 보낼 수 있다).
@@ -159,11 +161,13 @@ final class KeyboardTouchView: UIView {
         }
     }
 
-    private func finish(_ touches: Set<UITouch>) {
+    private func finish(_ touches: Set<UITouch>, cancelled: Bool) {
         for touch in ordered(touches) {
             guard let key = activeTouches.removeValue(forKey: touch) else { continue }
             key.isHighlighted = false
-            onKeyUp?(key, info(touch))
+            var touchInfo = info(touch)
+            touchInfo.cancelled = cancelled
+            onKeyUp?(key, touchInfo)
         }
     }
 }
