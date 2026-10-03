@@ -65,14 +65,17 @@ struct ContentView: View {
                 }
 
                 Section("출처") {
-                    // 자세한 파일별 출처는 ThirdParty/CREDITS.md. CC BY 는 표기가 의무라 무접점·멤브레인은 반드시 남긴다.
+                    // 자세한 파일별 출처는 ThirdParty/CREDITS.md. CC BY 는 표기가 의무라 무접점·멤브레인·얇은 무선 키보드는 반드시 남긴다.
                     Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Text("멤브레인 소리: Geoff Bremner(Geoff-Bremner-Audio) 「HP Office Keyboard」(freesound.org/s/705787), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text("적축·갈축·청축·흑축·버클링 스프링·노트북·도각 리니어 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss · SamsterBirdies · justamudkip · Techrul 녹음, CC0")
+                    Text("얇은 무선 키보드 소리: SoundsLikeFoley 「Typing on Logitech K811 keyboard」(freesound.org/people/SoundsLikeFoley/sounds/421031), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text("적축·갈축·청축·흑축·버클링 스프링·노트북·도각 리니어·구형 데스크탑·전동 타자기 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss · SamsterBirdies · justamudkip · Techrul · suckmadeck · secretmojo 녹음, CC0")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

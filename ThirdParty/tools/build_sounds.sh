@@ -25,5 +25,8 @@ conv "$TP/geoff-bremner-audio/705787__geoff-bremner-audio__hp-office-keyboard.wa
 conv "$TP/samsterbirdies/489423__samsterbirdies__typing-on-a-keyboard.flac" buckling_src
 conv "$TP/justamudkip/853602__justamudkip__typing-on-laptop-keyboard-2.wav" laptop_src
 conv "$TP/techrul/815614__techrul__typing-on-a-rainy-75.mp3" thock_src
+conv "$TP/secretmojo/224012__secretmojo__typewriter-ibm-selectric-ii.flac" typewriter_src
+conv "$TP/suckmadeck/676417__suckmadeck__typing-on-a-2002-apple-mac-keyboard.wav" desktop_src
+conv "$TP/soundslikefoley/421031__soundslikefoley__typing-on-logitech-k811-keyboard.wav" scissor_src
 
 python3 "$TP/tools/make_sounds.py" "$WORK" "$ROOT/KeyboardExtension/Sounds"
