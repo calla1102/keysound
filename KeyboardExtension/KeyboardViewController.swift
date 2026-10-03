@@ -190,7 +190,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// 조합을 끝낸다. 조합 글자는 이미 문서에 들어 있으므로 commit 은 오토마타 상태만 비우고 아무것도 삽입하지 않는다
-    /// (= 문서가 비어도 재삽입 없이 「버리기」와 같다). 문제는 호출 시점이므로 stale 판정이 이를 부른다.
+    /// (= 문서가 비어도 재삽입 없이 「버리기」와 같다). 언제 끝낼지는 `compositionIsStale` 가 정한다.
     private func commitComposition() {
         automaton.commit()
         noteComposingState()
@@ -202,7 +202,8 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// 조합 중인 글자가 문맥과 어긋났는지. 판정 규칙은 `CompositionGuard.isStale` 참고
-    /// (문맥 nil 이면 유지, 마지막 편집 직후 유예 중엔 불일치를 믿지 않아 stale 아님으로 본다).
+    /// (문맥 nil 이면서 문서가 비었고 유예가 지났으면 stale, 그 밖의 nil 은 유지.
+    /// 마지막 편집 직후 유예 중엔 불일치를 믿지 않아 stale 아님으로 본다).
     private func compositionIsStale() -> Bool {
         guard automaton.isComposing else { return false }
         let before = textDocumentProxy.documentContextBeforeInput

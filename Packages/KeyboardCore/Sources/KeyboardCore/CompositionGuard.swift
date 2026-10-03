@@ -48,7 +48,7 @@ public struct CompositionGuard: Equatable {
     ///   빈 기록(조합 시작 직후라 옛 문맥을 알 수 없음)이 있을 때만 그렇다. 둘 다 없으면 stale.
     ///   그래서 조합을 확정한 직후 `recordWindow` 동안은 빈 기록이 남아 유예 판정이 더 관대하다.
     /// - 유예가 지난 불일치는 stale.
-    public func isStale(composing: String, before: String?, documentEmpty: Bool = false,
+    public func isStale(composing: String, before: String?, documentEmpty: Bool,
                         lastEditTime: Double, now: Double) -> Bool {
         guard let before else {
             return documentEmpty && now - lastEditTime >= Self.grace
