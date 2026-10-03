@@ -5,6 +5,10 @@ final class KeyButton: UIButton {
     let spec: KeySpec
     let soundKind: KeySoundPlayer.Kind
 
+    /// 접근성 요소(`KeyboardTouchView`)가 상태 트레잇을 계산할 때 읽는다.
+    private(set) var isDimmed = false
+    private(set) var isEmphasized = false
+
     private var normalColor: UIColor
     private let pressedColor: UIColor
     private let baseColor: UIColor
@@ -46,6 +50,7 @@ final class KeyButton: UIButton {
 
     /// 켜진 토글(캡스락 등)은 글자 키 색으로 밝게 보인다.
     func setEmphasized(_ on: Bool) {
+        isEmphasized = on
         normalColor = on ? Palette.characterKey : baseColor
         backgroundColor = isHighlighted ? pressedColor : normalColor
     }
@@ -58,6 +63,7 @@ final class KeyButton: UIButton {
 
     /// 비활성으로 보이게만 한다(리턴 키 자동 비활성). 실제 입력 차단은 컨트롤러가 한다.
     func setDimmed(_ dimmed: Bool) {
+        isDimmed = dimmed
         alpha = dimmed ? 0.5 : 1
     }
 

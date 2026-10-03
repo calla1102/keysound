@@ -116,6 +116,7 @@ final class KeyboardViewController: UIInputViewController {
         touchView.onKeyDown = { [weak self] key, touch in self?.keyDown(key, touch) ?? false }
         touchView.onKeyUp = { [weak self] key, touch in self?.keyUp(key, touch) }
         touchView.onKeyMove = { [weak self] key, touch in self?.keyMove(key, touch) }
+        touchView.onKeyActivate = { [weak self] key in self?.accessibilityActivate(key) }
         view.addSubview(touchView)
         NSLayoutConstraint.activate([
             touchView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -373,6 +374,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func refreshLabels() {
         for key in keyButtons {
+            applyAccessibility(to: key)
             switch key.spec.action {
             case .character(let c):
                 key.setLabel(title: String(displayed(c)))
@@ -412,6 +414,49 @@ final class KeyboardViewController: UIInputViewController {
                 break
             }
         }
+    }
+
+    /// VoiceOver 라벨·값. 글자 키는 화면에 보이는 글자(Shift 반영)가 그대로 라벨이다.
+    private func applyAccessibility(to key: KeyButton) {
+        var label: String?
+        var value: String?
+        switch key.spec.action {
+        case .character(let c):
+            label = String(displayed(c))
+        case .shift:
+            label = "Shift"
+            switch shift.mode {
+            case .off: value = nil
+            case .once: value = "켜짐"
+            case .caps: value = "대문자 잠금"
+            }
+        case .backspace: label = "삭제"
+        case .space: label = "스페이스"
+        case .enter: label = profile?.returnTitle ?? "리턴"
+        case .nextKeyboard: label = "다음 키보드"
+        case .layer(.symbols): label = "숫자 및 기호"
+        case .layer(.moreSymbols): label = "추가 기호"
+        case .layer(.hangul): label = "한글 키보드"
+        case .layer(.english): label = "영문 키보드"
+        case .layer, .spacer: break
+        }
+        key.accessibilityLabel = label
+        key.accessibilityValue = value
+    }
+
+    /// VoiceOver 더블탭(또는 타이핑 모드에서 손가락을 뗄 때). 일반 터치와 같은 경로로 누름·뗌을 한 번에 처리한다.
+    private func accessibilityActivate(_ key: KeyButton) {
+        if key.spec.action == .nextKeyboard {
+            guard cursorTouch == nil else { return }
+            player.play(.press, key.soundKind)
+            player.play(.release, key.soundKind)
+            advanceToNextInputMode()
+            return
+        }
+        // 눌렀다 떼는 한 쌍이라 스페이스 보류·백스페이스 반복도 keyUp 에서 바로 정리된다
+        let touch = KeyboardTouchView.TouchInfo(id: ObjectIdentifier(key), x: 0, y: 0)
+        _ = keyDown(key, touch)
+        keyUp(key, touch)
     }
 
     // MARK: - Touch

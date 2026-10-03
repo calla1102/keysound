@@ -12,8 +12,16 @@ final class KeyboardTouchView: UIView {
         didSet {
             framesDirty = true
             setNeedsLayout()
+            rebuildAccessibilityElements()
+            // 레이어 전환·입력란 종류 변경으로 키가 바뀌었음을 VoiceOver 에 알린다. 화면에 뜨기 전(첫 구성)에는 알리지 않는다
+            if window != nil && !oldValue.isEmpty {
+                UIAccessibility.post(notification: .layoutChanged, argument: nil)
+            }
         }
     }
+
+    /// VoiceOver 더블탭·타이핑 모드 입력. 일반 터치와 같은 콜백을 눌렀다 떼는 한 쌍으로 부른다.
+    var onKeyActivate: ((KeyButton) -> Void)?
     /// 콜백에 넘기는 터치 정보. `id` 는 같은 손가락의 down·move·up 을 이어 주고, `x`·`y` 는 이 뷰 좌표계의 위치.
     struct TouchInfo {
         let id: ObjectIdentifier
@@ -40,6 +48,26 @@ final class KeyboardTouchView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - VoiceOver
+    //
+    // 글자 키는 isUserInteractionEnabled=false 이고 터치를 이 뷰가 좌표로 받으므로, 키 뷰 자체로는 VoiceOver 가 활성화할 수 없다.
+    // 그래서 이 뷰가 키마다 UIAccessibilityElement 를 컨테이너로서 노출하고, 활성화를 onKeyActivate 로 보낸다.
+    // 🌐 키도 같은 목록에 넣는다(시스템 핸들러는 실제 터치가 있어야 동작하므로 컨트롤러가 advanceToNextInputMode 로 처리한다).
+
+    private func rebuildAccessibilityElements() {
+        accessibilityElements = keys.map { key in
+            KeyAccessibilityElement(key: key, container: self) { [weak self] in
+                self?.activate(key)
+            }
+        }
+    }
+
+    private func activate(_ key: KeyButton) {
+        // VoiceOver 가 재구성 전 요소를 아직 들고 있으면 사라진 키가 눌린다. 현재 키만 받는다
+        guard keys.contains(where: { $0 === key }) else { return }
+        onKeyActivate?(key)
     }
 
     override func layoutSubviews() {
@@ -122,5 +150,58 @@ final class KeyboardTouchView: UIView {
             key.isHighlighted = false
             onKeyUp?(key, info(touch))
         }
+    }
+}
+
+/// 키 하나를 VoiceOver 에 알리는 요소. 라벨·값·상태는 키에서 그때그때 읽어 항상 최신이다.
+private final class KeyAccessibilityElement: UIAccessibilityElement {
+    private let key: KeyButton
+    private let onActivate: () -> Void
+
+    init(key: KeyButton, container: UIView, onActivate: @escaping () -> Void) {
+        self.key = key
+        self.onActivate = onActivate
+        super.init(accessibilityContainer: container)
+        isAccessibilityElement = true
+    }
+
+    override var accessibilityLabel: String? {
+        get { key.accessibilityLabel }
+        set {}
+    }
+
+    override var accessibilityValue: String? {
+        get { key.accessibilityValue }
+        set {}
+    }
+
+    override var accessibilityTraits: UIAccessibilityTraits {
+        get {
+            var traits: UIAccessibilityTraits = .keyboardKey
+            if key.isDimmed { traits.insert(.notEnabled) }
+            if key.spec.action == .shift && key.isEmphasized { traits.insert(.selected) }
+            return traits
+        }
+        set {}
+    }
+
+    /// 레이아웃이 바뀌어도 따라가도록 키의 현재 위치에서 계산한다.
+    override var accessibilityFrame: CGRect {
+        get { UIAccessibility.convertToScreenCoordinates(key.bounds, in: key) }
+        set {}
+    }
+
+    /// 기본 구현에 맡기지 않고 키 중앙을 직접 준다. 프레임 setter 를 막아 두었으니 저장된 값이 아닌 계산된 프레임을 기준으로 해야 한다.
+    override var accessibilityActivationPoint: CGPoint {
+        get {
+            let frame = accessibilityFrame
+            return CGPoint(x: frame.midX, y: frame.midY)
+        }
+        set {}
+    }
+
+    override func accessibilityActivate() -> Bool {
+        onActivate()
+        return true
     }
 }
