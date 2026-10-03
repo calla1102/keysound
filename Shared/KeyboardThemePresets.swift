@@ -27,6 +27,11 @@ extension KeyboardTheme {
         case .neonViolet: 6
         case .brass: 4
         case .pearl: 8
+        case .navy: 6
+        case .pastelStripes: 8
+        case .creamTypewriter: 12
+        case .forest: 7
+        case .lavender: 9
         case .rainbow: 8
         case .cottonCandy: 12
         case .roseTypewriter: 12
@@ -37,7 +42,7 @@ extension KeyboardTheme {
 
     var keyShape: KeyShape {
         switch self {
-        case .cottonCandy, .roseTypewriter, .slateTypewriter: .capsule
+        case .cottonCandy, .roseTypewriter, .slateTypewriter, .creamTypewriter: .capsule
         default: .rounded
         }
     }
@@ -71,16 +76,17 @@ extension KeyboardTheme {
         switch self {
         case .rainbow, .cottonCandy, .aurora, .pearl: .horizontal
         case .nightSky: .vertical
+        case .pastelStripes: .verticalSteps
         default: .cycle
         }
     }
 
     var relief: KeyRelief {
         switch self {
-        case .milk, .toast, .toffee, .retro, .mono, .rainbow, .slateTypewriter, .biscuit, .chocolate, .brass: .raised
-        case .matcha, .strawberry, .blueberry, .sherbet, .cottonCandy: .dished
+        case .milk, .toast, .toffee, .retro, .mono, .rainbow, .slateTypewriter, .biscuit, .chocolate, .brass, .creamTypewriter, .forest: .raised
+        case .matcha, .strawberry, .blueberry, .sherbet, .cottonCandy, .pastelStripes, .lavender: .dished
         case .crystal, .soda, .roseTypewriter, .aurora, .pearl: .glass
-        case .classic, .pixel, .outline, .nightSky, .primaryBlocks, .neonViolet: .flat
+        case .classic, .pixel, .outline, .nightSky, .primaryBlocks, .neonViolet, .navy: .flat
         }
     }
 
@@ -118,6 +124,10 @@ extension KeyboardTheme {
         let red = ThemeColor(0.85, 0.15, 0.15), blue = ThemeColor(0.15, 0.30, 0.75), yellow = ThemeColor(0.98, 0.82, 0.15)
         return [base, base, base, red, base, base, blue, base, yellow, base, base]
     }
+
+    static let pastelStripeStops: [ThemeColor] = [
+        ThemeColor(1.0, 0.80, 0.86), ThemeColor(0.82, 0.94, 0.76), ThemeColor(0.78, 0.90, 1.0), ThemeColor(0.86, 0.80, 0.98),
+    ]
 
     /// 민트→연두→살구→분홍→라벤더→연하늘
     static let rainbowStops: [ThemeColor] = [
@@ -323,6 +333,43 @@ extension KeyboardTheme {
                 shadow: nil,
                 border: ThemeBorder(color: ThemeColor(white: 1, alpha: 0.9), width: 0.75),
                 characterKeyPalette: Self.pearlStops)
+        case .navy:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.13, 0.20, 0.38),
+                functionKey: ThemeColor(0.09, 0.14, 0.28),
+                text: ThemeColor(white: 1),
+                shadow: ThemeColor(white: 0, alpha: 0.4),
+                accentKey: ThemeColor(0.25, 0.55, 0.95),
+                accentKeyText: ThemeColor(white: 1))
+        case .pastelStripes:
+            ThemeAppearance(
+                characterKey: Self.pastelStripeStops[0],
+                functionKey: Self.pastelStripeStops[0].darkened(by: 0.08),
+                text: ThemeColor(0.35, 0.30, 0.40),
+                shadow: ThemeColor(0.30, 0.25, 0.35, alpha: 0.22),
+                characterKeyPalette: Self.pastelStripeStops)
+        case .creamTypewriter:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.93, 0.88, 0.78),
+                functionKey: ThemeColor(0.80, 0.72, 0.60),
+                text: ThemeColor(0.30, 0.22, 0.14),
+                shadow: ThemeColor(0.30, 0.20, 0.10, alpha: 0.35))
+        case .forest:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.97, 0.95, 0.88),
+                functionKey: ThemeColor(0.40, 0.55, 0.40),
+                text: ThemeColor(0.20, 0.25, 0.18),
+                shadow: ThemeColor(0.15, 0.25, 0.15, alpha: 0.30),
+                accentKey: ThemeColor(0.45, 0.32, 0.22),
+                functionKeyText: ThemeColor(0.97, 0.95, 0.88),
+                accentKeyText: ThemeColor(0.97, 0.95, 0.88))
+        case .lavender:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.80, 0.74, 0.96),
+                functionKey: ThemeColor(0.55, 0.45, 0.80),
+                text: ThemeColor(white: 1),
+                shadow: ThemeColor(0.30, 0.20, 0.50, alpha: 0.25),
+                functionKeyText: ThemeColor(white: 1))
         }
     }
 
@@ -522,6 +569,43 @@ extension KeyboardTheme {
                 shadow: nil,
                 border: ThemeBorder(color: ThemeColor(white: 1, alpha: 0.35), width: 0.75),
                 characterKeyPalette: Self.pearlDarkStops)
+        case .navy:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.10, 0.16, 0.32),
+                functionKey: ThemeColor(0.07, 0.11, 0.23),
+                text: ThemeColor(white: 1),
+                shadow: ThemeColor(white: 0, alpha: 0.4),
+                accentKey: ThemeColor(0.25, 0.55, 0.95),
+                accentKeyText: ThemeColor(white: 1))
+        case .pastelStripes:
+            ThemeAppearance(
+                characterKey: Self.pastelStripeStops[0].dimmed(),
+                functionKey: Self.pastelStripeStops[0].dimmed().darkened(by: 0.08),
+                text: ThemeColor(0.95, 0.92, 0.98),
+                shadow: ThemeColor(white: 0, alpha: 0.4),
+                characterKeyPalette: Self.pastelStripeStops.map { $0.dimmed() })
+        case .creamTypewriter:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.45, 0.40, 0.33),
+                functionKey: ThemeColor(0.33, 0.28, 0.22),
+                text: ThemeColor(0.97, 0.93, 0.85),
+                shadow: ThemeColor(white: 0, alpha: 0.4))
+        case .forest:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.24, 0.33, 0.24),
+                functionKey: ThemeColor(0.15, 0.22, 0.15),
+                text: ThemeColor(0.93, 0.95, 0.85),
+                shadow: ThemeColor(white: 0, alpha: 0.4),
+                accentKey: ThemeColor(0.50, 0.36, 0.25),
+                functionKeyText: ThemeColor(0.93, 0.95, 0.85),
+                accentKeyText: ThemeColor(0.97, 0.95, 0.88))
+        case .lavender:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.40, 0.34, 0.60),
+                functionKey: ThemeColor(0.28, 0.22, 0.45),
+                text: ThemeColor(white: 1),
+                shadow: ThemeColor(white: 0, alpha: 0.4),
+                functionKeyText: ThemeColor(white: 1))
         }
     }
 }

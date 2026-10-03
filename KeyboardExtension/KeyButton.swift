@@ -35,7 +35,7 @@ final class KeyButton: UIButton {
         switch theme.paletteMode {
         case .cycle: nil
         case .horizontal: palettePosition?.x
-        case .vertical: palettePosition?.y
+        case .vertical, .verticalSteps: palettePosition?.y
         }
     }
 

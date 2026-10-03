@@ -45,7 +45,7 @@ struct KeyboardThemePreview: View {
         return (compact ? [first] : [first, second, third]).enumerated().map { r, row in
             row.map { key in
                 var key = key
-                key.verticalPosition = (Double(r) + 0.5) / Double(compact ? 1 : 3)
+                key.verticalPosition = (Double(r) + 0.5) / Double(compact ? 4 : 4)
                 return key
             }
         }
@@ -83,7 +83,7 @@ struct KeyboardThemePreview: View {
         case .function: role = .function
         case .enter: role = .enter
         }
-        return theme.keyColor(role: role, pressed: false, look: look, position: theme.paletteMode == .vertical ? key.verticalPosition : key.position)
+        return theme.keyColor(role: role, pressed: false, look: look, position: theme.paletteMode.usesVerticalPosition ? key.verticalPosition : key.position)
     }
 
     private func textColor(for key: Key) -> ThemeColor {

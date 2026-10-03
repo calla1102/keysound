@@ -96,6 +96,13 @@ struct ThemeColor: Equatable {
         luminance < 0.15 ? lightened(by: 0.18) : darkened()
     }
 
+    /// `colors` 를 같은 폭의 칸 n 개로 보고 `t`(0...1)가 속한 칸의 색(보간 없음). 비어 있으면 clear.
+    static func step(_ colors: [ThemeColor], at t: Double) -> ThemeColor {
+        guard !colors.isEmpty else { return .clear }
+        let i = Int((min(max(t, 0), 1) * Double(colors.count)).rounded(.down))
+        return colors[min(i, colors.count - 1)]
+    }
+
     /// 눌렀을 때 색. 밝은 색은 어둡게, 어두운 색은 밝게 하고, 반투명이면 조금 더 짙게(불투명 쪽으로) 한다.
     func pressedVariant() -> ThemeColor {
         let shifted = luminance > 0.4 ? darkened() : lightened()
@@ -170,6 +177,12 @@ enum PaletteMode: Equatable {
     case horizontal
     /// 키의 세로 위치(0=맨 위 행 ... 1=맨 아래 행)에 따라 보간(위→아래 그라데이션)
     case vertical
+    /// `.vertical` 과 같은 위치를 쓰되 보간 없이 줄 단위로 끊는다: 팔레트를 n 등분해 위치가 속한 칸의 색 하나를 쓴다.
+    /// 키보드 행이 n 개면 행마다 팔레트 색 하나가 된다(행 중심 (i+0.5)/n 이 i 번째 칸에 든다).
+    case verticalSteps
+
+    /// 세로 위치를 쓰는 모드인가
+    var usesVerticalPosition: Bool { self == .vertical || self == .verticalSteps }
 }
 
 /// 키 윤곽
@@ -302,6 +315,11 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
     case neonViolet
     case brass
     case pearl
+    case navy
+    case pastelStripes
+    case creamTypewriter
+    case forest
+    case lavender
 
     static let `default`: KeyboardTheme = .classic
 
@@ -340,6 +358,11 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         case .neonViolet: "네온 보라"
         case .brass: "놋쇠"
         case .pearl: "진주"
+        case .navy: "네이비"
+        case .pastelStripes: "파스텔 줄무늬"
+        case .creamTypewriter: "크림 타자기"
+        case .forest: "숲"
+        case .lavender: "라벤더"
         }
     }
 
@@ -371,6 +394,11 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         case .neonViolet: "검은 키에 보라 네온 글자와 빛 번짐"
         case .brass: "올리브 베이지 키에 짙은 갈색 특수 키"
         case .pearl: "진주처럼 은은하게 비치는 흰 유리 키"
+        case .navy: "짙은 남색 키에 밝은 파랑 엔터"
+        case .pastelStripes: "줄마다 분홍·연두·하늘·라벤더로 칠한 키"
+        case .creamTypewriter: "베이지 알약 모양 타자기 키"
+        case .forest: "크림색 키에 녹색 특수 키, 갈색 엔터"
+        case .lavender: "연보라 키에 진보라 특수 키"
         }
     }
 
@@ -392,7 +420,9 @@ extension KeyboardTheme {
     /// 순환 팔레트에서는 쓰지 않는다(모르면 0.5).
     func keyColor(role: KeyColorRole, pressed: Bool, look: ThemeAppearance, position: Double? = nil) -> ThemeColor {
         if paletteMode != .cycle, !look.characterKeyPalette.isEmpty {
-            let ramp = ThemeColor.interpolate(look.characterKeyPalette, at: position ?? 0.5)
+            let ramp = paletteMode == .verticalSteps
+                ? ThemeColor.step(look.characterKeyPalette, at: position ?? 0.5)
+                : ThemeColor.interpolate(look.characterKeyPalette, at: position ?? 0.5)
             let base: ThemeColor
             switch role {
             case .character, .space: base = ramp

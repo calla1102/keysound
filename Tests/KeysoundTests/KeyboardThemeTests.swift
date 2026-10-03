@@ -47,8 +47,8 @@ final class KeyboardThemeTests: XCTestCase {
         }
     }
 
-    func testTwentySixPresetsWithClassicFirst() {
-        XCTAssertEqual(KeyboardTheme.allCases.count, 26)
+    func testThirtyOnePresetsWithClassicFirst() {
+        XCTAssertEqual(KeyboardTheme.allCases.count, 31)
         XCTAssertEqual(KeyboardTheme.allCases.first, .classic)
     }
 
@@ -224,5 +224,43 @@ final class KeyboardThemeTests: XCTestCase {
         XCTAssertEqual(KeyboardTheme.primaryBlocks.cornerRadius, 2)
         XCTAssertEqual(KeyboardTheme.pearl.paletteMode, .horizontal)
         XCTAssertEqual(KeyboardTheme.aurora.darkAppearance.characterKeyPalette.map(\.alpha), [0.65, 0.65, 0.65])
+    }
+
+    func testStepPaletteSnapsEachOfFourRowsToOneColor() {
+        let stops = KeyboardTheme.pastelStripeStops
+        XCTAssertEqual(stops.count, 4)
+        // 4행 키보드: 행 중심 (i+0.5)/4 는 팔레트 i 번째 색에 떨어진다
+        for i in 0..<4 {
+            XCTAssertEqual(ThemeColor.step(stops, at: (Double(i) + 0.5) / 4), stops[i])
+        }
+        XCTAssertEqual(ThemeColor.step(stops, at: 1), stops[3])
+        XCTAssertEqual(ThemeColor.step(stops, at: -1), stops[0])
+        XCTAssertEqual(ThemeColor.step([], at: 0.5), .clear)
+        // 보간(.vertical)은 같은 위치에서 팔레트 색이 안 나온다 — 그래서 step 모드를 둔다
+        XCTAssertNotEqual(ThemeColor.interpolate(stops, at: 1.5 / 4), stops[1])
+    }
+
+    func testPastelStripesUsesRowColorAndDarkerFunctionKeys() {
+        let theme = KeyboardTheme.pastelStripes
+        XCTAssertEqual(theme.paletteMode, .verticalSteps)
+        XCTAssertTrue(theme.paletteMode.usesVerticalPosition)
+        let look = theme.lightAppearance
+        let row2 = theme.keyColor(role: .character(index: 9), pressed: false, look: look, position: 2.5 / 4)
+        XCTAssertEqual(row2, look.characterKeyPalette[2])
+        XCTAssertEqual(theme.keyColor(role: .function, pressed: false, look: look, position: 2.5 / 4), row2.darkened(by: 0.08))
+    }
+
+    func testFiveNewPresetStructure() {
+        XCTAssertEqual(KeyboardTheme.navy.lightAppearance.accentKey, ThemeColor(0.25, 0.55, 0.95))
+        XCTAssertEqual(KeyboardTheme.navy.relief, .flat)
+        XCTAssertEqual(KeyboardTheme.creamTypewriter.keyShape, .capsule)
+        XCTAssertEqual(KeyboardTheme.creamTypewriter.relief, .raised)
+        XCTAssertEqual(KeyboardTheme.forest.lightAppearance.accentKey, ThemeColor(0.45, 0.32, 0.22))
+        XCTAssertEqual(KeyboardTheme.lavender.relief, .dished)
+        XCTAssertEqual(KeyboardTheme.lavender.lightAppearance.functionText, ThemeColor(white: 1))
+        XCTAssertEqual(KeyboardTheme.lavender.darkAppearance.characterKey, ThemeColor(0.40, 0.34, 0.60))
+        for t in [KeyboardTheme.navy, .pastelStripes, .creamTypewriter, .forest, .lavender] {
+            XCTAssertEqual(KeyboardTheme(storedValue: t.rawValue), t)
+        }
     }
 }
