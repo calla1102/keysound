@@ -20,6 +20,12 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     case membrane
     /// justamudkip 녹음(Freesound 853602, CC0)
     case laptop
+    /// suckmadeck 녹음(Freesound 676417, 2002년 데스크탑 키보드, CC0)
+    case desktop
+    /// SoundsLikeFoley 녹음(Freesound 421031, 소형 블루투스 키보드, CC BY 4.0 — 앱 출처 표기 필수)
+    case slim
+    /// secretmojo 녹음(Freesound 224012, 전동 타자기, CC0). 뗌 소리가 없어 눌림을 깎은 틱으로 대체
+    case typewriter
     /// 자체 합성 40ms 클릭
     case click
     case off
@@ -38,6 +44,9 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .buckling: "버클링 스프링"
         case .membrane: "멤브레인"
         case .laptop: "노트북"
+        case .desktop: "구형 데스크탑"
+        case .slim: "얇은 무선 키보드"
+        case .typewriter: "전동 타자기"
         case .thock: "도각 리니어"
         case .click: "기본 클릭"
         case .off: "소리 끔"
@@ -54,6 +63,9 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .buckling: "스프링이 꺾이며 울리는 금속성 클릭"
         case .membrane: "사무용 멤브레인 키보드의 가볍고 둔한 소리"
         case .laptop: "노트북 가위식 키의 얇고 짧은 소리"
+        case .desktop: "오래된 데스크탑 키보드의 푹신하고 둔탁한 소리"
+        case .slim: "작고 얇은 무선 키보드의 가볍고 건조한 소리"
+        case .typewriter: "활자가 종이를 때리는 듯 날카로운 타자기 소리"
         case .thock: "둔탁하게 도각거리는 커스텀 키보드 소리"
         case .click: "짧고 가벼운 합성음"
         case .off: "타건음 없이 입력만"
@@ -72,6 +84,9 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .buckling: "buckling"
         case .membrane: "membrane"
         case .laptop: "laptop"
+        case .desktop: "desktop"
+        case .slim: "scissor"
+        case .typewriter: "typewriter"
         case .thock: "thock"
         case .click: "click"
         case .off: nil
@@ -82,7 +97,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     /// 새 축을 추가하면 여기서 반드시 정한다(true 인데 파일이 없으면 그 키는 무음).
     var hasSpecialKeySounds: Bool {
         switch self {
-        case .brown, .red, .black, .topre, .buckling, .membrane, .laptop, .thock: true
+        case .brown, .red, .black, .topre, .buckling, .membrane, .laptop, .thock, .desktop, .slim, .typewriter: true
         case .blue, .click, .off: false
         }
     }
@@ -91,7 +106,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
     /// 이름을 바꾸면 project.yml 앱 타깃의 `*_press_generic_r2.wav` includes 도 맞춘다.
     var previewFileName: String? {
         switch self {
-        case .brown, .blue, .red, .black, .topre, .buckling, .membrane, .laptop, .thock: filePrefix.map { "\($0)_press_generic_r2" }
+        case .brown, .blue, .red, .black, .topre, .buckling, .membrane, .laptop, .thock, .desktop, .slim, .typewriter: filePrefix.map { "\($0)_press_generic_r2" }
         case .click: "click_press"
         case .off: nil
         }
@@ -99,7 +114,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
 
     /// 앱 목록의 묶음. 소리 특성 기준이며 선언 순서가 표시 순서다. 종류가 늘면 case 와 `group` 한 줄씩 추가한다.
     enum Group: CaseIterable, Identifiable {
-        case clicky, tactile, linear, capacitiveAndMembrane, laptop, other
+        case clicky, tactile, linear, capacitiveAndMembrane, laptop, typewriter, other
 
         var id: Self { self }
 
@@ -109,7 +124,8 @@ enum SwitchSound: String, CaseIterable, Identifiable {
             case .tactile: "택타일"
             case .linear: "리니어"
             case .capacitiveAndMembrane: "무접점·멤브레인"
-            case .laptop: "노트북"
+            case .laptop: "노트북·슬림"
+            case .typewriter: "타자기"
             case .other: "기타"
             }
         }
@@ -123,8 +139,9 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .blue, .buckling: .clicky
         case .brown: .tactile
         case .red, .black, .thock: .linear
-        case .topre, .membrane: .capacitiveAndMembrane
-        case .laptop: .laptop
+        case .topre, .membrane, .desktop: .capacitiveAndMembrane
+        case .laptop, .slim: .laptop
+        case .typewriter: .typewriter
         case .click, .off: .other
         }
     }

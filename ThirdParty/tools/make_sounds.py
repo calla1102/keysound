@@ -263,9 +263,10 @@ save("topre", files)
 
 
 # ---------- 연속 타이핑 녹음 공통 (#42) ----------
-def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, loud_release=False, peak_db=-7):
+def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, loud_release=False, peak_db=-7, max_tail_db=None):
     """연속 타이핑 녹음 하나에서 눌림 5개(r0~r4)·뗌·특수키 파생을 만든다. 흑축 블록과 같은 방식이되
     음량 임계를 절대값(-28dBFS)이 아니라 녹음 안 95번째 백분위 피크 기준 top_db 안으로 잡아 녹음마다 음량이 달라도 된다.
+    max_tail_db: 눌림 뒤 150~400ms 구간 RMS 가 눌림 첫 30ms 보다 이 값(dB) 이하로 가라앉아야 한다(전동 타자기의 캐리지·벨·모터 울림, 이웃 타건이 이어지는 구간 제외).
     loud_release: 뗌 소리가 눌림만큼 큰 녹음(버클링 스프링)용. 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」(단어 끝 타건)만 (눌림, 뗌) 쌍으로 쓴다."""
     raw = read(f"{SRC}/{prefix}_src.wav")
     bx = denoise(raw, denoise_db) if denoise_db else raw
@@ -273,6 +274,9 @@ def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, l
     peak = lambda o: float(np.abs(raw[o:o + int(SR * 0.03)]).max())
     ref_peak = np.percentile([peak(o) for o in ons], 95)
     loud = [o for o in ons if peak(o) > ref_peak * 10 ** (-top_db / 20)]
+    if max_tail_db is not None:
+        tail = lambda o: 20 * np.log10((np.sqrt((raw[o + int(SR * 0.15):o + int(SR * 0.4)] ** 2).mean()) + 1e-9) / (np.sqrt((raw[o:o + int(SR * 0.03)] ** 2).mean()) + 1e-9))
+        loud = [o for o in loud if tail(o) <= max_tail_db]
     cands = []
     for o in loud:
         if loud_release:
@@ -323,3 +327,10 @@ from_continuous("buckling", press_ms=90, rel_ms=50, denoise_db=10, loud_release=
 from_continuous("laptop", press_ms=60, rel_ms=40, peak_db=-3)  # 짧고 날카로워 에너지가 작아 +4dB
 # ---------- 도각 리니어 (Techrul Rainy 75, 원본 mp3, 축 종류 미표기) ----------
 from_continuous("thock", press_ms=80, rel_ms=45, pick=12)
+
+# ---------- 전동 타자기 (secretmojo, 연속 타이핑) ----------
+from_continuous("typewriter", press_ms=90, rel_ms=45, pick=20, max_tail_db=-15)  # 뗌 소리가 없는 기계라 뗌은 눌림을 1.6배 높여 깎은 틱
+# ---------- 구형 데스크탑 (suckmadeck, 2002 데스크탑 키보드 연속 타이핑) ----------
+from_continuous("desktop", press_ms=70, rel_ms=40)
+# ---------- 블루투스 시저 (SoundsLikeFoley, 연속 타이핑, CC BY 4.0) ----------
+from_continuous("scissor", press_ms=60, rel_ms=40, peak_db=-3)  # 짧고 얇아 폰 스피커에서 작게 들려 +4dB
