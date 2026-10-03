@@ -31,6 +31,9 @@ targets:
     sources:
       - App
       - Shared
+      # 픽셀 글꼴 — 자판 디자인 미리보기용(SIL OFL, ThirdParty/galmuri)
+      - path: ThirdParty/galmuri/Galmuri11.ttf
+        buildPhase: resources
       # 축 선택 화면 미리듣기용 — 축마다 일반 키 1개(r2)와 기본 클릭만 앱 번들에 넣는다
       # 패턴은 SwitchSound.previewFileName 과 맞춘다
       - path: KeyboardExtension/Sounds
@@ -44,6 +47,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        UIAppFonts:
+          - Galmuri11.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
@@ -73,6 +78,7 @@ targets:
       - Tests/KeysoundTests
       - Shared/SwitchSound.swift
       - Shared/KeyboardTheme.swift
+      - Shared/KeyboardThemePresets.swift
       - App/SoundCredits.swift
     settings:
       base:
@@ -85,12 +91,17 @@ targets:
     sources:
       - KeyboardExtension
       - Shared
+      # 픽셀 자판 디자인 글꼴(SIL OFL, ThirdParty/galmuri). 크기가 커서 파일은 ThirdParty 한 곳에만 둔다
+      - path: ThirdParty/galmuri/Galmuri11.ttf
+        buildPhase: resources
     info:
       path: KeyboardExtension/Info.plist
       properties:
         CFBundleDisplayName: Keysound
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIAppFonts:
+          - Galmuri11.ttf
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController

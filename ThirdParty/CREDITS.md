@@ -75,3 +75,15 @@ a4b9438d749cd3da510bd5a967974e5988321a6aeda426094ffd2edf0f47d9ec  techrul/815614
 - Mechvibes 내장 팩(녹음자 불명), daktilo(출처 없음), bucklespring(GPL)·geneotech(AGPL), Pixabay(재배포 제한), CC BY-NC·AI 생성 녹음.
 - 후보였으나 탈락: ujonathan 628325(잡음·밀집), StavSounds 팩 42151(직접 녹음 진술 없음), Foxfire- 570755 뗌(바람 잡음).
 - #42 조사(이슈 #42 코멘트): zrrion 685984 알프스(저비트레이트 mp3, 타건 검출 0), bangcorrupt 833612(CC0 이나 설명에 비상업 문구), 저소음·광축·리얼포스 계열은 CC0/CC BY 녹음 없음.
+
+# 글꼴
+
+자판 디자인 「픽셀」의 도트 글꼴. 앱·키보드 익스텐션 번들에 `Galmuri11.ttf` 를 수정 없이 넣고 `UIAppFonts` 로 등록한다(`project.yml`).
+
+| 글꼴 | 저작권 | 출처 | 라이선스 | 앱 안 표기 |
+| --- | --- | --- | --- | --- |
+| 갈무리11 (Galmuri11, PostScript `Galmuri11-Regular`) | Copyright (c) 2019–2025 Lee Minseo (quiple@quiple.dev) | [quiple/galmuri](https://github.com/quiple/galmuri) v2.40.4 릴리스 zip 의 `Galmuri11.ttf` | SIL Open Font License 1.1 (전문 `galmuri/OFL.txt`, zip 의 `LICENSE.txt` 와 동일) | 「출처 및 라이선스」 글꼴 절 |
+
+- OFL 은 글꼴을 번들해 배포하는 것을 허용한다. 글꼴 자체를 단독으로 판매하지 않고, 수정하지 않았으므로 예약 글꼴 이름 제약에 걸리지 않는다.
+- 파일 크기 5.4MB(한글 완성형·호환 자모·한자 포함). 가벼운 비트맵 전용 변형(`Galmuri11Bitmap-Regular`, 0.78MB)은 iOS 의 비트맵 스트라이크 지원이 불확실해 쓰지 않았다.
+- 받은 zip sha256: `c8b3d9861a62ae73c8b1178091401cd79994812437ef386413f6dd54856e60e7`
