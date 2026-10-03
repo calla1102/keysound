@@ -5,6 +5,9 @@ struct ContentView: View {
     @AppStorage(AppGroup.Key.selectedSound, store: AppGroup.defaults)
     private var selectedSound: SwitchSound = .default
 
+    @AppStorage(AppGroup.Key.selectedTheme, store: AppGroup.defaults)
+    private var selectedTheme: KeyboardTheme = .default
+
     @State private var testText = ""
     @FocusState private var isTestFieldFocused: Bool
     @State private var previewer = SoundPreviewer()
@@ -17,6 +20,8 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                themeSection
+
                 ForEach(groups) { group in
                     Section {
                         ForEach(group.sounds) { sound in
@@ -53,12 +58,6 @@ struct ContentView: View {
                     }
                 }
 
-                Section("써 보기") {
-                    TextField("여기를 눌러 Keysound 키보드로 입력해 보세요", text: $testText, axis: .vertical)
-                        .lineLimit(3...6)
-                        .focused($isTestFieldFocused)
-                }
-
                 Section("시작하기") {
                     Label("설정 > 일반 > 키보드 > 키보드 > 새로운 키보드 추가에서 Keysound를 추가하세요.", systemImage: "keyboard")
                     Label("「전체 접근 허용」은 필요 없습니다. 입력한 내용은 어디로도 전송되지 않습니다.", systemImage: "lock")
@@ -71,7 +70,58 @@ struct ContentView: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .background(KeyboardDismissTap())
+            // 소리·디자인을 고른 뒤 바로 써 볼 수 있게 입력칸을 목록 위에 고정한다
+            .safeAreaInset(edge: .top) { testField }
             .navigationTitle("Keysound")
+        }
+    }
+}
+
+extension ContentView {
+    var testField: some View {
+        TextField("여기를 눌러 Keysound 키보드로 입력해 보세요", text: $testText, axis: .vertical)
+            .lineLimit(1...3)
+            .focused($isTestFieldFocused)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.bar)
+            .accessibilityLabel("써 보기 입력칸")
+    }
+
+    var themeSection: some View {
+        Section {
+            KeyboardThemePreview(theme: selectedTheme)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            ForEach(KeyboardTheme.allCases) { theme in
+                Button {
+                    // 키보드는 다시 열릴 때 선택을 읽으므로 내려 둔다
+                    isTestFieldFocused = false
+                    selectedTheme = theme
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(theme.displayName)
+                                .foregroundStyle(.primary)
+                            Text(theme.summary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if theme == selectedTheme {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .accessibilityLabel("\(theme.displayName), \(theme.summary)")
+                .accessibilityAddTraits(theme == selectedTheme ? .isSelected : [])
+            }
+        } header: {
+            Text("자판 디자인")
+        } footer: {
+            Text("고르면 키보드가 내려가고, 다시 열면 바뀐 디자인이 적용됩니다.")
         }
     }
 }

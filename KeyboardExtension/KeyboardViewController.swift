@@ -23,6 +23,8 @@ final class KeyboardViewController: UIInputViewController {
     private let touchView = KeyboardTouchView()
     private let rowsStack = UIStackView()
     private var keyButtons: [KeyButton] = []
+    /// 선택된 자판 디자인. 키보드가 보일 때 App Group 값을 다시 읽는다.
+    private var theme: KeyboardTheme = .default
 
     // MARK: 백스페이스 길게 누르기 가속
     //
@@ -107,9 +109,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. UIKit hit-test 는 배경색을 보지 않지만,
-        // 완전 투명(.clear) 영역의 터치가 익스텐션 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 0.001 을 쓴다.
-        view.backgroundColor = UIColor(white: 0, alpha: 0.001)
+        // 배경은 시스템 키보드 배경이 비치도록 거의 투명하다(이유는 `KeyboardTheme.backgroundUIColor`)
+        theme = AppGroup.selectedTheme
+        view.backgroundColor = KeyboardTheme.backgroundUIColor
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
@@ -146,17 +148,23 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
+        // 자판 디자인도 같은 시점에 반영한다. 바뀌었으면 키를 새 색으로 다시 만든다
+        let newTheme = AppGroup.selectedTheme
+        var needsRebuild = newTheme != theme
+        theme = newTheme
+        if showsGlobe != needsInputModeSwitchKey {
+            showsGlobe = needsInputModeSwitchKey
+            needsRebuild = true
+        }
         commitComposition()
-        // viewDidLoad 시점엔 입력란 정보가 기본값일 수 있어 보일 때 다시 읽는다
-        applyInputTraits()
+        // viewDidLoad 시점엔 입력란 정보가 기본값일 수 있어 보일 때 다시 읽는다. 키를 다시 만들었으면 true
+        let rebuilt = applyInputTraits()
         if shift.mode == .once {
             shift.clearOnce()
             refreshLabels()
         }
-        if showsGlobe != needsInputModeSwitchKey {
-            showsGlobe = needsInputModeSwitchKey
-            rebuildKeys()
-        }
+        // applyInputTraits 가 이미 새 theme·showsGlobe 로 만들었다면 한 번 더 만들지 않는다
+        if needsRebuild && !rebuilt { rebuildKeys() }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -253,14 +261,15 @@ final class KeyboardViewController: UIInputViewController {
     /// 입력란 종류를 읽어 반영한다. `keyboardType` 이 바뀔 때만 레이어를 새로 고르고
     /// (그 사이 사용자가 한/영·기호로 바꾼 레이어는 그대로 둔다), 리턴 키 종류만 바뀌면 라벨만 고친다.
     /// 시작 레이어는 저장된 「마지막 언어」를 덮어쓰지 않는다. 보조 입력란을 지나도 다음 일반 입력란은 늘 쓰던 언어로 돌아간다.
-    private func applyInputTraits() {
+    @discardableResult
+    private func applyInputTraits() -> Bool {
         let next = InputProfile(proxy: textDocumentProxy)
-        guard next != profile else { return }
+        guard next != profile else { return false }
         let typeChanged = next.keyboardType != profile?.keyboardType
         profile = next
         guard typeChanged else {
             refreshLabels()
-            return
+            return false
         }
         commitComposition()
         shift.reset()
@@ -274,6 +283,7 @@ final class KeyboardViewController: UIInputViewController {
             if start.isLetters { lettersLayer = start }
         }
         rebuildKeys()
+        return true
     }
 
     /// 리턴 키를 눌러도 되는가. 문서가 비면 비활성인 입력란이라도, 방금 우리가 편집했다면 호스트 갱신이 늦은 것이라 허용한다.
@@ -356,7 +366,7 @@ final class KeyboardViewController: UIInputViewController {
         default: kind = .generic(row: soundRow)
         }
 
-        let key = KeyButton(spec: spec, soundKind: kind)
+        let key = KeyButton(spec: spec, soundKind: kind, theme: theme)
         if spec.action == .nextKeyboard {
             // 🌐 만 버튼이 직접 터치를 받는다(시스템 핸들러가 이벤트를 필요로 함). 소리만 여기서 낸다
             key.addTarget(self, action: #selector(globeDown(_:)), for: .touchDown)

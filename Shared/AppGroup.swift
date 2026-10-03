@@ -12,9 +12,15 @@ enum AppGroup {
     enum Key {
         /// 사용자가 선택한 타건음(`SwitchSound.rawValue`)
         static let selectedSound = "selectedSound"
+        /// 사용자가 선택한 자판 디자인(`KeyboardTheme.rawValue`)
+        static let selectedTheme = "selectedKeyboardTheme"
     }
 
     static var selectedSound: SwitchSound {
         defaults?.string(forKey: Key.selectedSound).flatMap(SwitchSound.init(rawValue:)) ?? .default
+    }
+
+    static var selectedTheme: KeyboardTheme {
+        KeyboardTheme(storedValue: defaults?.string(forKey: Key.selectedTheme))
     }
 }
