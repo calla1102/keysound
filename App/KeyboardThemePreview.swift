@@ -31,9 +31,9 @@ struct KeyboardThemePreview: View {
         .frame(maxWidth: .infinity)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .background {
-            // 투명 배경(기본)은 실제 키보드에서 시스템 배경이 비치므로 회색으로 흉내 낸다
+            // 실제 키보드는 시스템 배경이 비치므로 회색으로 흉내 낸다
             RoundedRectangle(cornerRadius: 10)
-                .fill(look.background.alpha == 0 ? Color(.systemGray5) : look.background.color)
+                .fill(Color(.systemGray5))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(theme.displayName) 자판 미리보기")

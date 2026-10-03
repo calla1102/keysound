@@ -14,14 +14,10 @@ extension KeyboardTheme {
         }
     }
 
-    /// 키보드 뷰 배경. 투명(alpha 0)이면 시스템 배경이 비친다.
+    /// 키보드 뷰 배경. 테마와 상관없이 시스템 키보드 배경이 비치게 둔다 — 익스텐션 뷰 밖(위 둥근 모서리·🌐 줄)은
+    /// 시스템이 그려 칠할 수 없으므로, 불투명 배경을 깔면 그 경계가 상자처럼 드러난다(2026-10-04 실기기 확인).
     /// 완전 투명 영역의 터치가 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 를 0.001 로 올린다.
-    var backgroundUIColor: UIColor {
-        UIColor { trait in
-            let color = self.appearance(dark: trait.userInterfaceStyle == .dark).background
-            return color.alpha == 0 ? UIColor(white: 0, alpha: 0.001) : color.uiColor
-        }
-    }
+    static let backgroundUIColor = UIColor(white: 0, alpha: 0.001)
 
     /// 주어진 trait 에서의 그림자 색. nil 이면 그림자 없음.
     func shadowUIColor(for trait: UITraitCollection) -> UIColor? {

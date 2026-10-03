@@ -109,9 +109,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // 기본 프리셋은 시스템 키보드 배경이 비치도록 거의 투명하다(alpha 0.001 이유는 `backgroundUIColor`)
+        // 배경은 시스템 키보드 배경이 비치도록 거의 투명하다(이유는 `KeyboardTheme.backgroundUIColor`)
         theme = AppGroup.selectedTheme
-        view.backgroundColor = theme.backgroundUIColor
+        view.backgroundColor = KeyboardTheme.backgroundUIColor
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
@@ -152,7 +152,6 @@ final class KeyboardViewController: UIInputViewController {
         let newTheme = AppGroup.selectedTheme
         var needsRebuild = newTheme != theme
         theme = newTheme
-        view.backgroundColor = theme.backgroundUIColor
         if showsGlobe != needsInputModeSwitchKey {
             showsGlobe = needsInputModeSwitchKey
             needsRebuild = true

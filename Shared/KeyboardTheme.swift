@@ -23,8 +23,6 @@ struct ThemeColor: Equatable {
 
 /// 프리셋의 라이트 또는 다크 한쪽 값.
 struct ThemeAppearance: Equatable {
-    /// 키보드 배경. alpha 0 이면 시스템 키보드 배경이 비친다.
-    var background: ThemeColor
     var characterKey: ThemeColor
     /// 시프트·백스페이스·전환 등 특수 키
     var functionKey: ThemeColor
@@ -89,7 +87,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         switch self {
         case .classic:
             ThemeAppearance(
-                background: .clear,
                 characterKey: ThemeColor(white: 1),
                 functionKey: ThemeColor(0.67, 0.70, 0.74),
                 characterKeyPressed: ThemeColor(0.67, 0.70, 0.74),
@@ -100,7 +97,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
             Self.charcoalAppearance
         case .vintage:
             ThemeAppearance(
-                background: ThemeColor(0.91, 0.87, 0.78),
                 characterKey: ThemeColor(0.98, 0.95, 0.88),
                 functionKey: ThemeColor(0.80, 0.73, 0.61),
                 characterKeyPressed: ThemeColor(0.86, 0.80, 0.68),
@@ -109,7 +105,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
                 shadow: ThemeColor(0.35, 0.27, 0.18, alpha: 0.35))
         case .pastel:
             ThemeAppearance(
-                background: ThemeColor(0.96, 0.94, 0.98),
                 characterKey: ThemeColor(0.80, 0.90, 0.98),
                 functionKey: ThemeColor(0.98, 0.82, 0.88),
                 characterKeyPressed: ThemeColor(0.98, 0.82, 0.88),
@@ -123,7 +118,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         switch self {
         case .classic:
             ThemeAppearance(
-                background: .clear,
                 characterKey: ThemeColor(white: 0.42),
                 functionKey: ThemeColor(white: 0.27),
                 characterKeyPressed: ThemeColor(white: 0.27),
@@ -134,7 +128,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
             Self.charcoalAppearance
         case .vintage:
             ThemeAppearance(
-                background: ThemeColor(0.17, 0.14, 0.11),
                 characterKey: ThemeColor(0.36, 0.31, 0.25),
                 functionKey: ThemeColor(0.25, 0.21, 0.17),
                 characterKeyPressed: ThemeColor(0.25, 0.21, 0.17),
@@ -143,7 +136,6 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
                 shadow: ThemeColor(white: 0, alpha: 0.4))
         case .pastel:
             ThemeAppearance(
-                background: ThemeColor(0.15, 0.14, 0.20),
                 characterKey: ThemeColor(0.34, 0.44, 0.58),
                 functionKey: ThemeColor(0.55, 0.38, 0.48),
                 characterKeyPressed: ThemeColor(0.55, 0.38, 0.48),
@@ -153,9 +145,8 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 다크 고정 프리셋이라 라이트·다크가 같은 값이다.
+    /// 라이트·다크가 같은 값이다.
     private static let charcoalAppearance = ThemeAppearance(
-        background: ThemeColor(white: 0.12),
         characterKey: ThemeColor(white: 0.30),
         functionKey: ThemeColor(white: 0.20),
         characterKeyPressed: ThemeColor(white: 0.42),
