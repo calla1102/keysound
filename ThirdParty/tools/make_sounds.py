@@ -97,9 +97,10 @@ def rms(v):
     return np.sqrt((v[: int(SR * 0.04)] ** 2).mean()) + 1e-12
 
 
-def save(prefix, files):
+def save(prefix, files, peak_db=-7):
+    """peak_db: 눌림 r2 의 피크 목표(dBFS). 기본 -7. 짧고 날카롭거나 저역 위주라 폰 스피커에서 작게 들리는 축은 올린다."""
     ref = files["press_generic_r2"]
-    gain = 10 ** (-7 / 20) / np.abs(ref).max()
+    gain = 10 ** (peak_db / 20) / np.abs(ref).max()
     ref_rms = rms(ref) * gain
     for k, v in files.items():
         y = v * gain
@@ -259,3 +260,56 @@ files["press_space"], files["release_space"] = finish(resample(extra[0], 0.90), 
 files["press_enter"], files["release_enter"] = finish(resample(extra[1 % len(extra)], 0.94), 85, fade_ms=15), finish(rel, 45, fade_ms=12)
 files["press_backspace"], files["release_backspace"] = finish(resample(extra[2 % len(extra)], 0.97), 75, fade_ms=15), finish(rel, 45, fade_ms=12)
 save("topre", files)
+
+
+# ---------- 연속 타이핑 녹음 공통 (#42) ----------
+def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, loud_release=False, peak_db=-7):
+    """연속 타이핑 녹음 하나에서 눌림 5개(r0~r4)·뗌·특수키 파생을 만든다. 흑축 블록과 같은 방식이되
+    음량 임계를 절대값(-28dBFS)이 아니라 녹음 안 상위 95% 피크 기준 top_db 안으로 잡아 녹음마다 음량이 달라도 된다.
+    loud_release: 뗌 소리가 눌림만큼 큰 녹음(버클링 스프링)용. 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」(단어 끝 타건)만 (눌림, 뗌) 쌍으로 쓴다."""
+    raw = read(f"{SRC}/{prefix}_src.wav")
+    bx = denoise(raw, denoise_db) if denoise_db else raw
+    ons = onset_list(raw, rise=15, gap=0.035)
+    peak = lambda o: float(np.abs(raw[o:o + int(SR * 0.03)]).max())
+    ref_peak = np.percentile([peak(o) for o in ons], 95)
+    loud = [o for o in ons if peak(o) > ref_peak * 10 ** (-top_db / 20)]
+    cands = []
+    for o in loud:
+        if loud_release:
+            nxt = [n for n in ons if o + int(SR * 0.05) <= n <= o + int(SR * 0.16)]
+            if len(nxt) != 1 or any(nxt[0] < n <= nxt[0] + int(SR * 0.3) for n in ons):
+                continue
+            cands.append((o, nxt[0]))
+            continue
+        nxt = [n for n in ons if o < n <= o + int(SR * 0.15)]
+        if any(n in loud for n in nxt):  # 150ms 안에 다른 눌림이 겹치면 제외
+            continue
+        rel = next((n for n in nxt if n >= o + int(SR * 0.04) and peak(n) < peak(o) * 0.5), None)
+        cands.append((o, rel))
+    cands.sort(key=lambda c: -peak(c[0]))
+    cands = [c for c in cands if peak(c[0]) < 0.9][:pick]
+    assert len(cands) >= 5, f"{prefix}: 겹치지 않는 눌림이 {len(cands)}개뿐이라 r0~r4 를 못 채운다 — 원본·임계값 확인"
+    cands.sort(key=lambda c: float(np.abs(bx[c[0]:c[0] + 44]).max()))  # 시작이 깨끗한 순
+    # 뗌이 있으면 눌림은 뗌 직전까지만(뗌 소리가 눌림 파일에 섞이지 않게)
+    press5 = [bx[o:o + (int(SR * press_ms / 1000) if r is None else min(int(SR * press_ms / 1000), r - o))] for o, r in cands[:5]]
+    ref_r = rms(press5[0])
+    press5 = [v * ref_r / rms(v) for v in press5]
+    rels = [bx[r:r + int(SR * rel_ms / 1000)] for _, r in cands if r is not None]
+    rel = rels[0] if rels else resample(press5[0], 1.6)
+    print(f"{prefix}: 후보 {len(cands)}개, 뗌 {len(rels)}개, 선택 위치(초) {[round(o / SR, 1) for o, _ in cands[:5]]}")
+    files = {f"press_generic_r{r}": finish(press5[r], press_ms, fade_ms=15) for r in range(5)}
+    files["release_generic"] = finish(rel, rel_ms, fade_ms=12)
+    files["press_space"], files["release_space"] = finish(resample(press5[0], 0.90), press_ms + 10, fade_ms=15), finish(resample(rel, 0.95), rel_ms + 5, fade_ms=12)
+    files["press_enter"], files["release_enter"] = finish(resample(press5[1], 0.94), press_ms + 10, fade_ms=15), finish(rel, rel_ms, fade_ms=12)
+    files["press_backspace"], files["release_backspace"] = finish(resample(press5[2], 0.97), press_ms, fade_ms=15), finish(rel, rel_ms, fade_ms=12)
+    save(prefix, files, peak_db=peak_db)
+
+
+# ---------- 멤브레인 (Geoff-Bremner-Audio HP 사무용, CC BY 4.0) ----------
+from_continuous("membrane", press_ms=70, rel_ms=40, peak_db=-3)  # 저역 위주라 폰 스피커에서 작게 들려 +4dB
+# ---------- 버클링 스프링 (SamsterBirdies Unicomp) : 바닥 잡음 10dB 차감, 뗌이 눌림만큼 커서 단어 끝 타건에서 쌍으로 추출 ----------
+from_continuous("buckling", press_ms=90, rel_ms=50, denoise_db=10, loud_release=True)
+# ---------- 노트북 (justamudkip MacBook Pro 2021) ----------
+from_continuous("laptop", press_ms=60, rel_ms=40, peak_db=-3)  # 짧고 날카로워 에너지가 작아 +4dB
+# ---------- 윤활 리니어 (Techrul Rainy 75, 원본 mp3) ----------
+from_continuous("thock", press_ms=80, rel_ms=45)

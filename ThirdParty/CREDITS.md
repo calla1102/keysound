@@ -13,6 +13,10 @@
 | 청축 | `blue_` | UberBosser | Freesound 팩 [23846](https://freesound.org/people/UberBosser/packs/23846/) — 421581 w · 421582 space · 421583 q · 421584 ctrl (폰 녹음) | CC0 1.0 | 선택 |
 | 흑축 | `black_` | el_boss | Freesound [643559](https://freesound.org/people/el_boss/sounds/643559/) (Gateron 흑축, 연속 타이핑) | CC0 1.0 | 선택 |
 | 무접점 | `topre_` | MakotoHiramatsu | itch.io [Press and Click FREE](https://makotohiramatsu.itch.io/press-click-free) `KEY_PRESS_*.wav` (HHKB, 페이지 문구는 `makotohiramatsu/LICENSE.txt`) | **CC BY 4.0** | **필수** — 저작자·작품명·라이선스 URI·변경 사실(§3(a)(1)) |
+| 멤브레인 | `membrane_` | Geoff-Bremner-Audio | Freesound [705787](https://freesound.org/s/705787/) 「HP Office Keyboard」(사무용 HP 키보드, Sennheiser MKH50, 연속 타이핑) | **CC BY 4.0** | **필수** — 저작자·작품명·라이선스 URI·변경 사실 |
+| 버클링 스프링 | `buckling_` | SamsterBirdies | Freesound [489423](https://freesound.org/s/489423/) (Unicomp 버클링 스프링, BOYA BY-M1, 연속 타이핑 2분 16초) | CC0 1.0 | 선택 |
+| 노트북 | `laptop_` | justamudkip | Freesound [853602](https://freesound.org/s/853602/) (2021 MacBook Pro 14인치, DJI Mic, 연속 타이핑) | CC0 1.0 | 선택 |
+| 윤활 리니어 | `thock_` | Techrul | Freesound [815614](https://freesound.org/s/815614/) (Wobkey Rainy 75, 축 종류 미표기, 원본 mp3, 연속 타이핑) | CC0 1.0 | 선택 |
 | 기본 클릭 | `click_` | (합성) | `tools/make_click.py` 가 생성. 외부 녹음 없음 | — | 불필요 |
 
 ## 파일별 구성
@@ -22,9 +26,11 @@
 - 스페이스·엔터·백스페이스: 적축은 전용 녹음(789629·789630). 나머지는 눌림을 0.90~0.97 배로 낮춘 파생. 청축은 전용 파일 없이 일반 키 소리를 쓴다(`SwitchSound.hasSpecialKeySounds`).
 - 흑축 원본은 스펙트럼 차감(14dB, 최대 20dB)으로 잡음을 줄였다. 온셋 검출은 원본에서 한다.
 - 무접점은 `KEY_PRESS_*` 22개 중 눌림이 겹치지 않는 9개(001·002·008·009·010·011·018·021·023)만 두었다. `KEY_SEQUENCE_*`·마우스 `CLICK_*` 는 쓰지 않아 제외.
+- #42 추가 4종(멤브레인·버클링 스프링·노트북·윤활 리니어)은 모두 연속 타이핑 녹음이라 `from_continuous` 로 같은 방식으로 자른다: 온셋 검출 → 녹음 안 상위 95% 피크 기준 12dB 안의 눌림 중 150ms 안에 다른 눌림이 없는 것 8개 → 시작이 깨끗한 5개를 r0~r4. 뗌은 눌림 뒤 40~150ms 의 절반 이하 소리. 스페이스·엔터·백스페이스는 눌림을 0.90~0.97 배로 낮춘 파생.
+  - 버클링 스프링은 뗌 소리가 눌림만큼 커서(스프링 복귀) 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」인 단어 끝 타건만 (눌림, 뗌) 쌍으로 쓰고, 바닥 잡음은 스펙트럼 차감 10dB. 눌림 길이 90ms(울림), 노트북 60ms, 멤브레인 70ms, 윤활 리니어 80ms.
 - 공통 가공: 모노 44.1kHz Int16 변환(ffmpeg), 눌림 generic r2 피크 -7dBFS, 뗌 RMS -9dB, 특수키 RMS +3dB 상한, 3ms 페이드인·6~15ms 페이드아웃.
 
-축 표기 근거: 업로더가 제목·설명에 적은 키보드/스위치(#23 코멘트의 조사 기록). Sadiquecat 은 Keychron K10 녹음으로 리니어(적축)로 분류, Foxfire- 는 "Cherry MX Browns", UberBosser 는 "blue switches", el_boss 는 "Gateron Black", MakotoHiramatsu 는 HHKB(정전용량 무접점). Freesound 설명 본문은 2026-10-03 재추출에 실패해 이슈 기록을 따랐다.
+축 표기 근거: 업로더가 제목·설명에 적은 키보드/스위치(#23 코멘트의 조사 기록). Sadiquecat 은 Keychron K10 녹음으로 리니어(적축)로 분류, Foxfire- 는 "Cherry MX Browns", UberBosser 는 "blue switches", el_boss 는 "Gateron Black", MakotoHiramatsu 는 HHKB(정전용량 무접점). Freesound 설명 본문은 2026-10-03 재추출에 실패해 이슈 기록을 따랐다. #42 추가분의 설명 본문은 2026-10-03 스크립트로 추출해 확인했다: Geoff-Bremner-Audio "Typing on an office HP keyboard, recorded with a Sennheiser MKH50. Sound by Geoff Bremner", SamsterBirdies "Recording typing on a Unicomp buckling spring keyboard with a BOYA BY-M1", justamudkip "The sounds of me typing on a 2021 14\" MacBook Pro keyboard", Techrul "I just typed on my Rainy 75 keyboard"(축 종류 미표기 → 앱 표기는 소리 특성인 「윤활 리니어」).
 
 ## 원본 sha256 (2026-10-03 내려받은 파일)
 
@@ -47,6 +53,10 @@ b833737bb36471be862bfce0f93a4f97e52f6af8cc1555c70b065077a33e25d7  makotohiramats
 2c4ece5a8fe899a2acdd43bdd7f2a7471a712ae9a86221c2961c11b7355be7a3  makotohiramatsu/KEY_PRESS_018.wav
 5968457fa8521a244f855ae4763a5e690caea6e3c5974550e2ea93645fbac4e6  makotohiramatsu/KEY_PRESS_021.wav
 6d092b6c3ad207c0ef3664ce6864eb7588c1145ff2477542aa89599e9ec0554e  makotohiramatsu/KEY_PRESS_023.wav
+d8a97b68f300cb3de5ad685ef53ffafbac980422c49ef50c3a1b12fcac7d5658  geoff-bremner-audio/705787__geoff-bremner-audio__hp-office-keyboard.wav
+b4618ae0dde6160de31d856b878216a3efeb7f60cb0a16e8835b00b9a95feb56  samsterbirdies/489423__samsterbirdies__typing-on-a-keyboard.flac
+bf7be3720307c6b31dcd902f99c41f3409b88a2d903ac97d9e8be775e87028fb  justamudkip/853602__justamudkip__typing-on-laptop-keyboard-2.wav
+a4b9438d749cd3da510bd5a967974e5988321a6aeda426094ffd2edf0f47d9ec  techrul/815614__techrul__typing-on-a-rainy-75.mp3
 ```
 
 ## 쓰지 않기로 한 것
@@ -54,3 +64,4 @@ b833737bb36471be862bfce0f93a4f97e52f6af8cc1555c70b065077a33e25d7  makotohiramats
 - **kbsim**(github.com/tplai/kbsim): 저장소는 MIT 이지만 녹음은 YouTube 타건 영상(Koen Romers·Taeha Types)에서 따온 것으로 저자가 밝힘(tplai/kbsim#22). 2026-10-03 전부 제거.
 - Mechvibes 내장 팩(녹음자 불명), daktilo(출처 없음), bucklespring(GPL)·geneotech(AGPL), Pixabay(재배포 제한), CC BY-NC·AI 생성 녹음.
 - 후보였으나 탈락: ujonathan 628325(잡음·밀집), StavSounds 팩 42151(직접 녹음 진술 없음), Foxfire- 570755 뗌(바람 잡음).
+- #42 조사(이슈 #42 코멘트): zrrion 685984 알프스(저비트레이트 mp3, 타건 검출 0), bangcorrupt 833612(CC0 이나 설명에 비상업 문구), 저소음·광축·리얼포스 계열은 CC0/CC BY 녹음 없음.
