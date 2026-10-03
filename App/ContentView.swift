@@ -9,10 +9,15 @@ struct ContentView: View {
     @FocusState private var isTestFieldFocused: Bool
     @State private var previewer = SoundPreviewer()
 
+    /// 소리가 하나도 없는 묶음은 헤더만 남지 않게 뺀다
+    private var groups: [SwitchSound.Group] {
+        SwitchSound.Group.allCases.filter { !$0.sounds.isEmpty }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(SwitchSound.Group.allCases) { group in
+                ForEach(groups) { group in
                     Section {
                         ForEach(group.sounds) { sound in
                             Button {
@@ -42,7 +47,7 @@ struct ContentView: View {
                         Text(group.displayName)
                     } footer: {
                         // 안내문은 마지막 묶음 아래에만 둔다
-                        if group == SwitchSound.Group.allCases.last {
+                        if group == groups.last {
                             Text("탭하면 소리를 미리 들을 수 있습니다. 고르면 키보드가 내려가고, 다시 열면 바뀐 소리가 적용됩니다. 무음 모드에서는 소리가 나지 않습니다.")
                         }
                     }
@@ -64,10 +69,10 @@ struct ContentView: View {
                     Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text("멤브레인 소리: Geoff-Bremner-Audio 「HP Office Keyboard」(freesound.org/s/705787), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
+                    Text("멤브레인 소리: Geoff Bremner(Geoff-Bremner-Audio) 「HP Office Keyboard」(freesound.org/s/705787), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text("적축·갈축·청축·흑축·버클링 스프링·노트북·윤활 리니어 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss · SamsterBirdies · justamudkip · Techrul 녹음, CC0")
+                    Text("적축·갈축·청축·흑축·버클링 스프링·노트북·도각 리니어 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss · SamsterBirdies · justamudkip · Techrul 녹음, CC0")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

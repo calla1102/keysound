@@ -1,7 +1,7 @@
 # 타건음 출처
 
 앱(`KeyboardExtension/Sounds/*.wav`)의 모든 타건음은 아래 원본에서 만들었다. 원본은 이 폴더에 받은 파일명 그대로 두고,
-`sh tools/build_sounds.sh` 로 다시 만들 수 있다(결정적 — 같은 원본이면 같은 바이트). 「기본 클릭」은 `python3 tools/make_click.py KeyboardExtension/Sounds/click_press.wav`.
+`sh tools/build_sounds.sh` 로 다시 만들 수 있다(결정적 — 같은 원본이면 같은 바이트. ffmpeg 8.1.2 기준, 48kHz·24bit·mp3 원본은 ffmpeg 리샘플러·디코더가 바뀌면 달라질 수 있다). 「기본 클릭」은 `python3 tools/make_click.py KeyboardExtension/Sounds/click_press.wav`.
 
 선정 기준(#23): **녹음 파일 자체에 CC0/CC BY 가 명시되고, 업로더가 직접 녹음했다고 밝힌 것**만 쓴다.
 라이선스는 2026-10-03 각 페이지의 CC 링크로 확인했다.
@@ -16,7 +16,7 @@
 | 멤브레인 | `membrane_` | Geoff-Bremner-Audio | Freesound [705787](https://freesound.org/s/705787/) 「HP Office Keyboard」(사무용 HP 키보드, Sennheiser MKH50, 연속 타이핑) | **CC BY 4.0** | **필수** — 저작자·작품명·라이선스 URI·변경 사실 |
 | 버클링 스프링 | `buckling_` | SamsterBirdies | Freesound [489423](https://freesound.org/s/489423/) (Unicomp 버클링 스프링, BOYA BY-M1, 연속 타이핑 2분 16초) | CC0 1.0 | 선택 |
 | 노트북 | `laptop_` | justamudkip | Freesound [853602](https://freesound.org/s/853602/) (2021 MacBook Pro 14인치, DJI Mic, 연속 타이핑) | CC0 1.0 | 선택 |
-| 윤활 리니어 | `thock_` | Techrul | Freesound [815614](https://freesound.org/s/815614/) (Wobkey Rainy 75, 축 종류 미표기, 원본 mp3, 연속 타이핑) | CC0 1.0 | 선택 |
+| 도각 리니어 | `thock_` | Techrul | Freesound [815614](https://freesound.org/s/815614/) (Wobkey Rainy 75, 축 종류 미표기, 원본 mp3, 연속 타이핑) | CC0 1.0 | 선택 |
 | 기본 클릭 | `click_` | (합성) | `tools/make_click.py` 가 생성. 외부 녹음 없음 | — | 불필요 |
 
 ## 파일별 구성
@@ -26,11 +26,11 @@
 - 스페이스·엔터·백스페이스: 적축은 전용 녹음(789629·789630). 나머지는 눌림을 0.90~0.97 배로 낮춘 파생. 청축은 전용 파일 없이 일반 키 소리를 쓴다(`SwitchSound.hasSpecialKeySounds`).
 - 흑축 원본은 스펙트럼 차감(14dB, 최대 20dB)으로 잡음을 줄였다. 온셋 검출은 원본에서 한다.
 - 무접점은 `KEY_PRESS_*` 22개 중 눌림이 겹치지 않는 9개(001·002·008·009·010·011·018·021·023)만 두었다. `KEY_SEQUENCE_*`·마우스 `CLICK_*` 는 쓰지 않아 제외.
-- #42 추가 4종(멤브레인·버클링 스프링·노트북·윤활 리니어)은 모두 연속 타이핑 녹음이라 `from_continuous` 로 같은 방식으로 자른다: 온셋 검출 → 녹음 안 상위 95% 피크 기준 12dB 안의 눌림 중 150ms 안에 다른 눌림이 없는 것 8개 → 시작이 깨끗한 5개를 r0~r4. 뗌은 눌림 뒤 40~150ms 의 절반 이하 소리. 스페이스·엔터·백스페이스는 눌림을 0.90~0.97 배로 낮춘 파생.
-  - 버클링 스프링은 뗌 소리가 눌림만큼 커서(스프링 복귀) 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」인 단어 끝 타건만 (눌림, 뗌) 쌍으로 쓰고, 바닥 잡음은 스펙트럼 차감 10dB. 눌림 길이 90ms(울림), 노트북 60ms, 멤브레인 70ms, 윤활 리니어 80ms.
+- #42 추가 4종(멤브레인·버클링 스프링·노트북·도각 리니어)은 모두 연속 타이핑 녹음이라 `from_continuous` 로 같은 방식으로 자른다: 온셋 검출 → 녹음 안 95번째 백분위 피크 기준 12dB 안의 눌림 중 150ms 안에 다른 눌림이 없는 것 8개 → 시작이 깨끗한 5개를 r0~r4. 뗌은 눌림 뒤 40~150ms 의 절반 이하 소리. 스페이스·엔터·백스페이스는 눌림을 0.90~0.97 배로 낮춘 파생.
+  - 버클링 스프링은 뗌 소리가 눌림만큼 커서(스프링 복귀) 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」인 단어 끝 타건만 (눌림, 뗌) 쌍으로 쓰고, 바닥 잡음은 스펙트럼 차감 10dB. 눌림 길이 90ms(울림), 노트북 60ms, 멤브레인 70ms, 도각 리니어 80ms.
 - 공통 가공: 모노 44.1kHz Int16 변환(ffmpeg), 눌림 generic r2 피크 -7dBFS, 뗌 RMS -9dB, 특수키 RMS +3dB 상한, 3ms 페이드인·6~15ms 페이드아웃.
 
-축 표기 근거: 업로더가 제목·설명에 적은 키보드/스위치(#23 코멘트의 조사 기록). Sadiquecat 은 Keychron K10 녹음으로 리니어(적축)로 분류, Foxfire- 는 "Cherry MX Browns", UberBosser 는 "blue switches", el_boss 는 "Gateron Black", MakotoHiramatsu 는 HHKB(정전용량 무접점). Freesound 설명 본문은 2026-10-03 재추출에 실패해 이슈 기록을 따랐다. #42 추가분의 설명 본문은 2026-10-03 스크립트로 추출해 확인했다: Geoff-Bremner-Audio "Typing on an office HP keyboard, recorded with a Sennheiser MKH50. Sound by Geoff Bremner", SamsterBirdies "Recording typing on a Unicomp buckling spring keyboard with a BOYA BY-M1", justamudkip "The sounds of me typing on a 2021 14\" MacBook Pro keyboard", Techrul "I just typed on my Rainy 75 keyboard"(축 종류 미표기 → 앱 표기는 소리 특성인 「윤활 리니어」).
+축 표기 근거: 업로더가 제목·설명에 적은 키보드/스위치(#23 코멘트의 조사 기록). Sadiquecat 은 Keychron K10 녹음으로 리니어(적축)로 분류, Foxfire- 는 "Cherry MX Browns", UberBosser 는 "blue switches", el_boss 는 "Gateron Black", MakotoHiramatsu 는 HHKB(정전용량 무접점). Freesound 설명 본문은 2026-10-03 재추출에 실패해 이슈 기록을 따랐다. #42 추가분의 설명 본문은 2026-10-03 스크립트로 추출해 확인했다: Geoff-Bremner-Audio "Typing on an office HP keyboard, recorded with a Sennheiser MKH50. Sound by Geoff Bremner", SamsterBirdies "Recording typing on a Unicomp buckling spring keyboard with a BOYA BY-M1", justamudkip "The sounds of me typing on a 2021 14\" MacBook Pro keyboard", Techrul "I just typed on my Rainy 75 keyboard"(축 종류 미표기 → 앱 표기는 소리 특성인 「도각 리니어」, 윤활·흡음 여부는 원본에 근거가 없어 설명에 쓰지 않음).
 
 ## 원본 sha256 (2026-10-03 내려받은 파일)
 

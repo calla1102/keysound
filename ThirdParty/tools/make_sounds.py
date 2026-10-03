@@ -265,7 +265,7 @@ save("topre", files)
 # ---------- 연속 타이핑 녹음 공통 (#42) ----------
 def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, loud_release=False, peak_db=-7):
     """연속 타이핑 녹음 하나에서 눌림 5개(r0~r4)·뗌·특수키 파생을 만든다. 흑축 블록과 같은 방식이되
-    음량 임계를 절대값(-28dBFS)이 아니라 녹음 안 상위 95% 피크 기준 top_db 안으로 잡아 녹음마다 음량이 달라도 된다.
+    음량 임계를 절대값(-28dBFS)이 아니라 녹음 안 95번째 백분위 피크 기준 top_db 안으로 잡아 녹음마다 음량이 달라도 된다.
     loud_release: 뗌 소리가 눌림만큼 큰 녹음(버클링 스프링)용. 「눌림 → 50~160ms 뒤 온셋 하나 → 300ms 공백」(단어 끝 타건)만 (눌림, 뗌) 쌍으로 쓴다."""
     raw = read(f"{SRC}/{prefix}_src.wav")
     bx = denoise(raw, denoise_db) if denoise_db else raw
@@ -289,7 +289,7 @@ def from_continuous(prefix, press_ms, rel_ms, denoise_db=0, pick=8, top_db=12, l
     cands.sort(key=lambda c: -peak(c[0]))
     cands = [c for c in cands if peak(c[0]) < 0.9][:pick]
     assert len(cands) >= 5, f"{prefix}: 겹치지 않는 눌림이 {len(cands)}개뿐이라 r0~r4 를 못 채운다 — 원본·임계값 확인"
-    cands.sort(key=lambda c: float(np.abs(bx[c[0]:c[0] + 44]).max()))  # 시작이 깨끗한 순
+    cands.sort(key=lambda c: float(np.abs(bx[c[0]:c[0] + int(SR * 0.001)]).max()))  # 시작 1ms 가 깨끗한 순
     # 줄별 변주가 되도록 이미 고른 것과 파형 상관이 0.9 이상이면(사실상 같은 타건) 건너뛴다
     chosen = []
     for c in cands:
@@ -321,5 +321,5 @@ from_continuous("membrane", press_ms=70, rel_ms=40, peak_db=-3)  # 저역 위주
 from_continuous("buckling", press_ms=90, rel_ms=50, denoise_db=10, loud_release=True)
 # ---------- 노트북 (justamudkip MacBook Pro 2021) ----------
 from_continuous("laptop", press_ms=60, rel_ms=40, peak_db=-3)  # 짧고 날카로워 에너지가 작아 +4dB
-# ---------- 윤활 리니어 (Techrul Rainy 75, 원본 mp3) ----------
+# ---------- 도각 리니어 (Techrul Rainy 75, 원본 mp3, 축 종류 미표기) ----------
 from_continuous("thock", press_ms=80, rel_ms=45, pick=12)

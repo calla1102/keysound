@@ -1,6 +1,6 @@
 /// 키보드에서 고를 수 있는 타건음. rawValue 가 App Group 에 저장된다.
 enum SwitchSound: String, CaseIterable, Identifiable {
-    // allCases 순서 = 앱 목록 표시 순서. 묶음(Group) 순서와 맞춘다.
+    // allCases 순서 = 묶음 안 표시 순서(묶음 순서는 Group.allCases). 묶음 순서와 맞춰 두면 읽기 쉽다.
 
     /// UberBosser 녹음(Freesound 421581~421584, CC0). 스페이스·엔터·백스페이스 전용 녹음 없음 → 일반 키 소리로 대체
     case blue
@@ -38,7 +38,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .buckling: "버클링 스프링"
         case .membrane: "멤브레인"
         case .laptop: "노트북"
-        case .thock: "윤활 리니어"
+        case .thock: "도각 리니어"
         case .click: "기본 클릭"
         case .off: "소리 끔"
         }
@@ -54,7 +54,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .buckling: "스프링이 꺾이며 울리는 금속성 클릭"
         case .membrane: "사무용 멤브레인 키보드의 가볍고 둔한 소리"
         case .laptop: "노트북 가위식 키의 얇고 짧은 소리"
-        case .thock: "윤활·흡음한 커스텀 키보드의 묵직한 도각 소리"
+        case .thock: "둔탁하게 도각거리는 커스텀 키보드 소리"
         case .click: "짧고 가벼운 합성음"
         case .off: "타건음 없이 입력만"
         }
@@ -99,7 +99,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
 
     /// 앱 목록의 묶음. 소리 특성 기준이며 선언 순서가 표시 순서다. 종류가 늘면 case 와 `group` 한 줄씩 추가한다.
     enum Group: CaseIterable, Identifiable {
-        case clicky, tactile, linear, silentAndMembrane, laptop, other
+        case clicky, tactile, linear, capacitiveAndMembrane, laptop, other
 
         var id: Self { self }
 
@@ -108,7 +108,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
             case .clicky: "클릭"
             case .tactile: "택타일"
             case .linear: "리니어"
-            case .silentAndMembrane: "무접점·멤브레인"
+            case .capacitiveAndMembrane: "무접점·멤브레인"
             case .laptop: "노트북"
             case .other: "기타"
             }
@@ -123,7 +123,7 @@ enum SwitchSound: String, CaseIterable, Identifiable {
         case .blue, .buckling: .clicky
         case .brown: .tactile
         case .red, .black, .thock: .linear
-        case .topre, .membrane: .silentAndMembrane
+        case .topre, .membrane: .capacitiveAndMembrane
         case .laptop: .laptop
         case .click, .off: .other
         }
