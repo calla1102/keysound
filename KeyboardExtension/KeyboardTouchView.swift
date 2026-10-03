@@ -22,6 +22,8 @@ final class KeyboardTouchView: UIView {
 
     /// VoiceOver 더블탭·타이핑 모드 입력. 일반 터치와 같은 콜백을 눌렀다 떼는 한 쌍으로 부른다.
     var onKeyActivate: ((KeyButton) -> Void)?
+    /// VoiceOver 사용자 지정 동작으로 대체 문자를 고를 때(팝업은 손가락 슬라이드라 VoiceOver 로는 못 쓴다).
+    var onAlternateActivate: ((KeyButton, Character) -> Void)?
     /// 콜백에 넘기는 터치 정보. `id` 는 같은 손가락의 down·move·up 을 이어 주고, `x`·`y` 는 이 뷰 좌표계의 위치.
     struct TouchInfo {
         let id: ObjectIdentifier
@@ -58,9 +60,11 @@ final class KeyboardTouchView: UIView {
 
     private func rebuildAccessibilityElements() {
         accessibilityElements = keys.map { key in
-            KeyAccessibilityElement(key: key, container: self) { [weak self] in
+            KeyAccessibilityElement(key: key, container: self, onActivate: { [weak self] in
                 self?.activate(key)
-            }
+            }, onAlternate: { [weak self] c in
+                self?.activateAlternate(key, c)
+            })
         }
     }
 
@@ -68,6 +72,11 @@ final class KeyboardTouchView: UIView {
         // VoiceOver 가 재구성 전 요소를 아직 들고 있으면 사라진 키가 눌린다. 현재 키만 받는다
         guard keys.contains(where: { $0 === key }) else { return }
         onKeyActivate?(key)
+    }
+
+    private func activateAlternate(_ key: KeyButton, _ c: Character) {
+        guard keys.contains(where: { $0 === key }) else { return }
+        onAlternateActivate?(key, c)
     }
 
     override func layoutSubviews() {
@@ -79,6 +88,12 @@ final class KeyboardTouchView: UIView {
     private func refreshKeyFrames() {
         keyFrames = keys.map { $0.superview == nil ? CGRect.zero : $0.convert($0.bounds, to: self) }
         framesDirty = false
+    }
+
+    /// 키 프레임(이 뷰 좌표계). 팝업 위치 계산용.
+    func frame(of key: KeyButton) -> CGRect {
+        layoutIfNeeded()
+        return key.convert(key.bounds, to: self)
     }
 
     /// 터치 지점에 대응하는 키. 밀린 레이아웃을 하위 트리까지 반영한 뒤 캐시를 쓴다.
@@ -157,16 +172,31 @@ final class KeyboardTouchView: UIView {
 private final class KeyAccessibilityElement: UIAccessibilityElement {
     private let key: KeyButton
     private let onActivate: () -> Void
+    private let onAlternate: (Character) -> Void
 
-    init(key: KeyButton, container: UIView, onActivate: @escaping () -> Void) {
+    init(key: KeyButton, container: UIView, onActivate: @escaping () -> Void, onAlternate: @escaping (Character) -> Void) {
         self.key = key
         self.onActivate = onActivate
+        self.onAlternate = onAlternate
         super.init(accessibilityContainer: container)
         isAccessibilityElement = true
     }
 
     override var accessibilityLabel: String? {
         get { key.accessibilityLabel }
+        set {}
+    }
+
+    /// 대체 문자가 있는 키는 로터 동작으로 고를 수 있다. 목록은 그때그때 키에서 읽는다.
+    override var accessibilityCustomActions: [UIAccessibilityCustomAction]? {
+        get {
+            key.alternates.map { c in
+                UIAccessibilityCustomAction(name: String(c)) { [onAlternate] _ in
+                    onAlternate(c)
+                    return true
+                }
+            }
+        }
         set {}
     }
 
