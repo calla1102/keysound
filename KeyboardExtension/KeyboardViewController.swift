@@ -339,13 +339,13 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Layout
 
     private func rebuildKeys() {
-        #if DEBUG
-        let started = CFAbsoluteTimeGetCurrent()
-        defer { NSLog("[Keysound] rebuildKeys(%@) %.1fms", theme.rawValue, (CFAbsoluteTimeGetCurrent() - started) * 1000) }
-        #endif
         rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         keyButtons = []
-        defer { touchView.keys = keyButtons }
+        defer {
+            touchView.keys = keyButtons
+            // 레이어 전환은 뷰 크기가 그대로라 viewDidLayoutSubviews 가 안 불릴 수 있다. 키 프레임을 바로 잡고 위치를 넘긴다
+            updateHorizontalPositions()
+        }
 
         let rows = KeyboardLayout.rows(for: currentLayer, showsGlobe: showsGlobe, lettersLayer: lettersLayer,
                                       accessories: profile?.accessoryKeys ?? [])
@@ -420,7 +420,10 @@ final class KeyboardViewController: UIInputViewController {
     /// 가로·세로 그라데이션 팔레트 프리셋에서 각 키 중심의 위치 비율을 키에 알려 준다.
     /// x 는 키보드 뷰 폭 기준, y 는 키 행 묶음(`rowsStack`) 높이 기준(0=맨 위 행).
     private func updateHorizontalPositions() {
-        guard theme.paletteMode != .cycle, view.bounds.width > 0, rowsStack.bounds.height > 0 else { return }
+        guard theme.paletteMode != .cycle, view.bounds.width > 0 else { return }
+        // viewDidLayoutSubviews 시점엔 바로 아래 자식만 프레임이 확정돼 있다. 행·키까지 내려 레이아웃해야 현재 폭 기준 값이 된다
+        rowsStack.layoutIfNeeded()
+        guard rowsStack.bounds.height > 0 else { return }
         for key in keyButtons where key.bounds.width > 0 {
             let x = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: view).x
             let y = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: rowsStack).y

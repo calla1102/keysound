@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 자판 디자인 미리보기. 현재 라이트·다크 설정을 반영해 키 몇 줄만 그린다. 이미지 에셋 없이 코드로 글꼴·무늬·외곽선·입체감을 흉내 낸다.
 struct KeyboardThemePreview: View {
+    /// 실제 키보드의 행 수(글자 3행 + 하단 행). 세로 팔레트 보간이 키보드와 같은 위치에 떨어지게 미리보기도 이 값으로 나눈다.
+    private static let keyboardRowCount = 4.0
     let theme: KeyboardTheme
     /// 선택 목록용 작은 미리보기 — 키 한 줄만 그린다
     var compact = false
@@ -45,7 +47,7 @@ struct KeyboardThemePreview: View {
         return (compact ? [first] : [first, second, third]).enumerated().map { r, row in
             row.map { key in
                 var key = key
-                key.verticalPosition = (Double(r) + 0.5) / Double(compact ? 4 : 4)
+                key.verticalPosition = (Double(r) + 0.5) / Self.keyboardRowCount
                 return key
             }
         }

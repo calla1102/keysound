@@ -1,6 +1,6 @@
 import UIKit
 
-/// 키 하나. 눌림 상태에 따라 배경색만 바꾸고, 입력·소리 처리는 컨트롤러가 한다.
+/// 키 하나. 테마에 따라 색·면·그라데이션 레이어를 그리고 눌림·강조 상태를 반영한다. 입력·소리 처리는 컨트롤러가 한다.
 final class KeyButton: UIButton {
     let spec: KeySpec
     let soundKind: KeySoundPlayer.Kind
@@ -213,6 +213,13 @@ final class KeyButton: UIButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// 색은 전부 정적 CGColor/UIColor 라 init 시점(뷰 계층 밖)의 trait 로 칠한 값이 남는다. 창에 붙어 라이트/다크·
+    /// displayScale 이 확정되면 한 번 다시 칠한다(다크로 시작·레이어 전환 직후 첫 칠 보장, 타일 배율도 이때 맞는다).
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { updateAppearance() }
     }
 
     override func layoutSubviews() {

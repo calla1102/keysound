@@ -201,7 +201,7 @@ enum PatternScope: Equatable {
     case alternate
 }
 
-/// 키 윗면·옆면의 입체감. 레이어는 키당 최대 1개(그라데이션)만 더한다.
+/// 키 윗면·옆면의 입체감. 더하는 레이어는 키당 최대 2개(볼록은 면 + 그라데이션, 그 외는 그라데이션 1개 또는 없음).
 enum KeyRelief: Equatable {
     /// 단색 + 얇은 그림자
     case flat
