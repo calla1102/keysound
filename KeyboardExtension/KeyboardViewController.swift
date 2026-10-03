@@ -107,9 +107,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // 시스템 키보드 배경이 비쳐 보이도록 거의 투명하게 둔다. UIKit hit-test 는 배경색을 보지 않지만,
-        // 완전 투명(.clear) 영역의 터치가 익스텐션 호스팅 쪽에서 빠진다는 경험칙(미검증)에 대비해 alpha 0.001 을 쓴다.
-        view.backgroundColor = UIColor(white: 0, alpha: 0.001)
+        // 기본 프리셋은 시스템 키보드 배경이 비치도록 거의 투명하다(alpha 0.001 이유는 `Palette.background`)
+        Palette.reload()
+        view.backgroundColor = Palette.background
 
         // 키보드 전체가 터치 영역이다. 키 사이 간격과 가장자리 터치도 가장 가까운 키로 보낸다
         touchView.translatesAutoresizingMaskIntoConstraints = false
@@ -146,6 +146,9 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         // 앱에서 바꾼 타건음을 키보드가 다시 열릴 때 반영한다
         player.load(AppGroup.selectedSound)
+        // 자판 디자인도 같은 시점에 반영한다. 바뀌었으면 키를 새 색으로 다시 만든다
+        let themeChanged = Palette.reload()
+        view.backgroundColor = Palette.background
         commitComposition()
         // viewDidLoad 시점엔 입력란 정보가 기본값일 수 있어 보일 때 다시 읽는다
         applyInputTraits()
@@ -155,6 +158,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         if showsGlobe != needsInputModeSwitchKey {
             showsGlobe = needsInputModeSwitchKey
+            rebuildKeys()
+        } else if themeChanged {
             rebuildKeys()
         }
     }

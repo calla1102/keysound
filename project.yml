@@ -72,6 +72,7 @@ targets:
     sources:
       - Tests/KeysoundTests
       - Shared/SwitchSound.swift
+      - Shared/KeyboardTheme.swift
       - App/SoundCredits.swift
     settings:
       base:

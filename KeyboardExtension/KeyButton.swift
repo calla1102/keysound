@@ -19,18 +19,30 @@ final class KeyButton: UIButton {
         let isFunction = Self.isFunctionKey(spec.action)
         baseColor = isFunction ? Palette.functionKey : Palette.characterKey
         normalColor = baseColor
-        pressedColor = isFunction ? Palette.characterKey : Palette.functionKey
+        pressedColor = isFunction ? Palette.functionKeyPressed : Palette.characterKeyPressed
         super.init(frame: .zero)
 
         backgroundColor = normalColor
-        tintColor = .label
-        setTitleColor(.label, for: .normal)
+        tintColor = Palette.text
+        setTitleColor(Palette.text, for: .normal)
         titleLabel?.font = .systemFont(ofSize: Self.isCharacterKey(spec.action) ? 22 : 16)
-        layer.cornerRadius = 5
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.3
+        layer.cornerRadius = Palette.cornerRadius
         layer.shadowOffset = CGSize(width: 0, height: 1)
         layer.shadowRadius = 0
+        updateShadow()
+        // CGColor 는 라이트↔다크를 자동으로 따르지 않아 모드가 바뀔 때 다시 칠한다
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (key: KeyButton, _) in
+            key.updateShadow()
+        }
+    }
+
+    private func updateShadow() {
+        if let color = Palette.shadowColor(for: traitCollection) {
+            layer.shadowColor = color.cgColor
+            layer.shadowOpacity = 1
+        } else {
+            layer.shadowOpacity = 0
+        }
     }
 
     @available(*, unavailable)
@@ -83,17 +95,5 @@ final class KeyButton: UIButton {
         case .character, .space, .spacer: false
         case .shift, .backspace, .enter, .layer, .nextKeyboard: true
         }
-    }
-}
-
-/// iOS 기본 키보드와 비슷한 색. 라이트·다크 모드를 따른다.
-enum Palette {
-    static let characterKey = UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(white: 0.42, alpha: 1)
-        : .white
-    }
-    static let functionKey = UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(white: 0.27, alpha: 1)
-        : UIColor(red: 0.67, green: 0.70, blue: 0.74, alpha: 1)
     }
 }

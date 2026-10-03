@@ -5,6 +5,10 @@ struct ContentView: View {
     @AppStorage(AppGroup.Key.selectedSound, store: AppGroup.defaults)
     private var selectedSound: SwitchSound = .default
 
+    @AppStorage(KeyboardTheme.storageKey, store: AppGroup.defaults)
+    private var selectedThemeID: String = KeyboardTheme.default.rawValue
+    private var selectedTheme: KeyboardTheme { KeyboardTheme(storedValue: selectedThemeID) }
+
     @State private var testText = ""
     @FocusState private var isTestFieldFocused: Bool
     @State private var previewer = SoundPreviewer()
@@ -17,6 +21,8 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                themeSection
+
                 ForEach(groups) { group in
                     Section {
                         ForEach(group.sounds) { sound in
@@ -72,6 +78,43 @@ struct ContentView: View {
             .scrollDismissesKeyboard(.immediately)
             .background(KeyboardDismissTap())
             .navigationTitle("Keysound")
+        }
+    }
+}
+
+extension ContentView {
+    var themeSection: some View {
+        Section {
+            KeyboardThemePreview(theme: selectedTheme)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            ForEach(KeyboardTheme.allCases) { theme in
+                Button {
+                    // 키보드는 다시 열릴 때 선택을 읽으므로 내려 둔다
+                    isTestFieldFocused = false
+                    selectedThemeID = theme.rawValue
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(theme.displayName)
+                                .foregroundStyle(.primary)
+                            Text(theme.summary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if theme == selectedTheme {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .accessibilityLabel("\(theme.displayName), \(theme.summary)")
+                .accessibilityAddTraits(theme == selectedTheme ? .isSelected : [])
+            }
+        } header: {
+            Text("자판 디자인")
+        } footer: {
+            Text("고르면 키보드가 내려가고, 다시 열면 바뀐 디자인이 적용됩니다.")
         }
     }
 }
