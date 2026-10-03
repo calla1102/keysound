@@ -4,6 +4,8 @@ import UIKit
 final class KeyButton: UIButton {
     let spec: KeySpec
     let soundKind: KeySoundPlayer.Kind
+    /// 길게 누르면 고를 수 있는 대체 문자. 비어 있으면 평소처럼 누르는 즉시 입력한다.
+    var alternates: [Character] = []
 
     /// 접근성 요소(`KeyboardTouchView`)가 상태 트레잇을 계산할 때 읽는다.
     private(set) var isDimmed = false

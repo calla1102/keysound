@@ -92,6 +92,28 @@ final class KeyboardViewController: UIInputViewController {
     }
     private var ignoredTouches: Set<ObjectIdentifier> = []
 
+    // MARK: 길게 누르기 대체 문자 팝업
+    //
+    // 입력 시점: 대체 문자가 있는 키(기호 레이어의 `$` 등, 표는 KeyboardCore.AlternateCharacters)만 스페이스처럼 입력을 「보류(pendingAlt)」한다.
+    // (1) altLongPressDelay 안에 떼면 keyUp 에서 원래 문자를 넣고, (2) 그 전에 다른 키가 눌리면 그 키보다 먼저 넣어(롤오버 순서 유지),
+    // (3) 시간이 지나도 누르고 있으면 팝업을 띄운다. 대체 문자가 없는 키는 지금처럼 touchDown 즉시 입력이라 빠른 타이핑에 영향이 없다.
+    // 팝업: 첫 칸이 원래 문자라 손가락을 움직이지 않고 떼면 평소와 같다. 좌우로 미끄러뜨려 고르고 떼면 입력,
+    // 팝업·키 영역에서 위아래로 크게(cancelSlack) 벗어난 채 떼면 취소(입력 없음). 터치 cancel·키보드 사라짐: 보류는 입력, 팝업은 입력 없이 닫는다.
+    // 팝업 중 다른 손가락의 키 터치는 이동 모드처럼 소리·입력 모두 무시하고, 먼저 눌려 있던 레이어 키를 떼도 레이어를 바꾸지 않는다.
+    // 타건음: 누를 때 press, 뗄 때 release 한 번씩만 나고 팝업 표시·선택·입력으로는 더 나지 않는다.
+    private static let altLongPressDelay: TimeInterval = 0.45
+    private var pendingAltTouch: ObjectIdentifier?
+    private var pendingAltKey: KeyButton?
+    private var altTimer: Timer?
+    /// 보류 중 손가락의 마지막 위치. 판정 시간 안에 미끄러뜨린 만큼 팝업의 첫 선택에 반영한다
+    private var lastAltPoint: CGPoint = .zero
+    private var popupTouch: ObjectIdentifier?
+    private var popupView: AlternatePopupView?
+    private var popupGeometry: AlternatePopupGeometry?
+    private var popupCandidates: [Character] = []
+    private var popupSelection: Int?
+    private var popupKey: KeyButton?
+
     private enum Metric {
         static let rowHeight: CGFloat = 42
         static let rowSpacing: CGFloat = 10
@@ -103,6 +125,7 @@ final class KeyboardViewController: UIInputViewController {
     deinit {
         deleteTimer?.invalidate()
         longPressTimer?.invalidate()
+        altTimer?.invalidate()
         contextRecheck?.cancel()
         returnRecheck?.cancel()
     }
@@ -119,6 +142,7 @@ final class KeyboardViewController: UIInputViewController {
         touchView.onKeyUp = { [weak self] key, touch in self?.keyUp(key, touch) }
         touchView.onKeyMove = { [weak self] key, touch in self?.keyMove(key, touch) }
         touchView.onKeyActivate = { [weak self] key in self?.accessibilityActivate(key) }
+        touchView.onAlternateActivate = { [weak self] key, c in self?.accessibilityInsertAlternate(key, c) }
         view.addSubview(touchView)
         NSLayoutConstraint.activate([
             touchView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -173,6 +197,8 @@ final class KeyboardViewController: UIInputViewController {
         contextRecheck?.cancel()
         // 누른 스페이스는 떼기 전에 사라져도 입력으로 친다(터치 cancel 도 같다). 보류 전 keyDown 즉시 입력과 같은 결과다
         flushPendingSpace()
+        flushPendingAlt()
+        cancelAltPopup()
         // flush 의 조합 확정이 남긴 기록까지 비운다
         compositionGuard.reset()
         endCursorMode()
@@ -273,7 +299,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         commitComposition()
         shift.reset()
-        // 누르고 있던 옛 키가 새 레이어 위에서 keyUp 으로 실행되지 않게 한다
+        // 누르고 있던 옛 키가 새 레이어 위에서 keyUp 으로 실행되지 않게 한다. 보류·팝업은 입력 없이 버린다
+        cancelAltPress()
         touchView.resetTouches()
         let saved = Self.savedLettersLayer()
         lettersLayer = saved
@@ -367,6 +394,9 @@ final class KeyboardViewController: UIInputViewController {
         }
 
         let key = KeyButton(spec: spec, soundKind: kind, theme: theme)
+        if currentLayer == .symbols || currentLayer == .moreSymbols, case .character(let c) = spec.action {
+            key.alternates = AlternateCharacters.alternates(for: c)
+        }
         if spec.action == .nextKeyboard {
             // 🌐 만 버튼이 직접 터치를 받는다(시스템 핸들러가 이벤트를 필요로 함). 소리만 여기서 낸다
             key.addTarget(self, action: #selector(globeDown(_:)), for: .touchDown)
@@ -469,11 +499,23 @@ final class KeyboardViewController: UIInputViewController {
         keyUp(key, touch)
     }
 
+    /// VoiceOver 사용자 지정 동작으로 고른 대체 문자. 눌렀다 떼는 한 쌍처럼 소리를 내고 바로 입력한다.
+    private func accessibilityInsertAlternate(_ key: KeyButton, _ c: Character) {
+        guard cursorTouch == nil, popupTouch == nil else { return }
+        cancelLineMoves()
+        flushPendingSpace()
+        flushPendingAlt()
+        stopDeleteRepeat()
+        player.play(.press, key.soundKind)
+        player.play(.release, key.soundKind)
+        insertAlternate(c)
+    }
+
     // MARK: - Touch
 
     /// 이 터치를 받아들였는지 돌려준다. 이동 모드 중 다른 키는 무시(false)해 눌림 표시도 켜지 않는다.
     private func keyDown(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) -> Bool {
-        if cursorTouch != nil {
+        if cursorTouch != nil || popupTouch != nil {
             ignoredTouches.insert(touch.id)
             return false
         }
@@ -482,6 +524,19 @@ final class KeyboardViewController: UIInputViewController {
         player.play(.press, key.soundKind)
         // 보류 중인 공백이 있으면 이 키보다 먼저 넣어 입력 순서를 지킨다
         flushPendingSpace()
+        flushPendingAlt()
+        // alternates 는 글자 키에만 붙지만, 보류 경로가 `.character` 를 전제하므로 조건으로도 못박는다
+        if !key.alternates.isEmpty, case .character = key.spec.action {
+            // 대체 문자가 있는 키는 뗄 때(또는 다른 키가 눌릴 때) 넣는다. 길게 누르면 팝업
+            stopDeleteRepeat()
+            pendingAltTouch = touch.id
+            pendingAltKey = key
+            lastAltPoint = CGPoint(x: touch.x, y: touch.y)
+            altTimer = Timer.scheduledTimer(withTimeInterval: Self.altLongPressDelay, repeats: false) { [weak self] _ in
+                self?.beginAltPopup()
+            }
+            return true
+        }
         if key.spec.action == .space {
             stopDeleteRepeat()
             pendingSpaceTouch = touch.id
@@ -512,6 +567,22 @@ final class KeyboardViewController: UIInputViewController {
     private func keyUp(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) {
         if ignoredTouches.remove(touch.id) != nil { return }
         player.play(.release, key.soundKind)
+        if popupTouch == touch.id {
+            let selection = popupSelection
+            let candidates = popupCandidates
+            let key = popupKey
+            cancelAltPopup()
+            // 시스템이 터치를 취소했으면(홈 제스처·배너 등) 팝업은 입력 없이 닫는다
+            if !touch.cancelled, let selection, selection < candidates.count, let key {
+                // 첫 칸은 원래 문자라 평소 입력 경로(Shift 1회 소모 등)를 그대로 탄다
+                if selection == 0 { handle(key.spec.action) } else { insertAlternate(candidates[selection]) }
+            }
+            return
+        }
+        if pendingAltTouch == touch.id {
+            flushPendingAlt()
+            return
+        }
         switch key.spec.action {
         case .space:
             if cursorTouch == touch.id {
@@ -525,6 +596,10 @@ final class KeyboardViewController: UIInputViewController {
             let stillHeld = touchView.hasActiveTouch { key, id in key.spec.action == .backspace && !ignoredTouches.contains(id) }
             if !stillHeld { stopDeleteRepeat() }
         case .layer:
+            // 다른 손가락이 팝업을 쓰는 중이면 레이어를 바꾸지 않는다(팝업이 다른 레이어 위에 남는다)
+            guard popupTouch == nil else { break }
+            // 레이어 키보다 늦게 눌린 대체 문자 키가 보류 중이면 옛 레이어 기준으로 먼저 넣는다(롤오버 순서)
+            flushPendingAlt()
             handle(key.spec.action)
         default:
             break
@@ -532,7 +607,16 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func keyMove(_ key: KeyButton, _ touch: KeyboardTouchView.TouchInfo) {
+        if popupTouch == touch.id, let geometry = popupGeometry {
+            let selection = geometry.candidate(at: CGPoint(x: touch.x, y: touch.y))
+            if selection != popupSelection {
+                popupSelection = selection
+                popupView?.select(selection)
+            }
+            return
+        }
         if pendingSpaceTouch == touch.id { lastSpacePoint = CGPoint(x: touch.x, y: touch.y) }
+        if pendingAltTouch == touch.id { lastAltPoint = CGPoint(x: touch.x, y: touch.y) }
         guard cursorTouch == touch.id else { return }
         let delta = cursorTracker.move(to: CGPoint(x: touch.x, y: touch.y))
         if delta.columns != 0 {
@@ -637,6 +721,66 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    /// 보류한 대체 문자 키의 원래 문자를 넣는다(뗐거나, 다른 키가 눌렸거나, 키보드가 사라질 때).
+    private func flushPendingAlt() {
+        guard let key = pendingAltKey else { return }
+        altTimer?.invalidate()
+        altTimer = nil
+        pendingAltKey = nil
+        pendingAltTouch = nil
+        if compositionIsStale() { commitComposition() }
+        handle(key.spec.action)
+    }
+
+    /// 판정 시간 동안 눌려 있었다. 입력은 하지 않고 팝업을 띄운다.
+    private func beginAltPopup() {
+        guard let key = pendingAltKey, let touch = pendingAltTouch, case .character(let base) = key.spec.action else { return }
+        altTimer = nil
+        pendingAltKey = nil
+        pendingAltTouch = nil
+        let candidates = [displayed(base)] + key.alternates
+        let geometry = AlternatePopupGeometry(keyFrame: touchView.frame(of: key), cellCount: candidates.count, bounds: touchView.bounds)
+        let view = AlternatePopupView(candidates: candidates, geometry: geometry, theme: theme)
+        // 판정 시간 안에 이미 미끄러뜨렸으면 그 위치의 칸(또는 취소)에서 시작한다
+        let selection = geometry.candidate(at: lastAltPoint)
+        view.select(selection)
+        touchView.addSubview(view)
+        popupView = view
+        popupGeometry = geometry
+        popupCandidates = candidates
+        popupSelection = selection
+        popupKey = key
+        popupTouch = touch
+        // 조합 중이던 글자가 팝업 뒤에서 어긋나지 않게 미리 확정한다
+        commitComposition()
+    }
+
+    private func cancelAltPopup() {
+        popupView?.removeFromSuperview()
+        popupView = nil
+        popupGeometry = nil
+        popupCandidates = []
+        popupSelection = nil
+        popupKey = nil
+        popupTouch = nil
+    }
+
+    /// 보류·팝업을 입력 없이 버린다(입력란이 바뀌어 터치를 리셋할 때).
+    private func cancelAltPress() {
+        altTimer?.invalidate()
+        altTimer = nil
+        pendingAltKey = nil
+        pendingAltTouch = nil
+        cancelAltPopup()
+    }
+
+    /// 팝업에서 고른 대체 문자를 넣는다. 팝업 경로는 `beginAltPopup` 에서 조합을 확정했지만 VoiceOver 경로를 위해 다시 확정한다.
+    private func insertAlternate(_ c: Character) {
+        commitComposition()
+        textDocumentProxy.insertText(String(c))
+        lastEditTime = CACurrentMediaTime()
+    }
+
     private func flushPendingSpace() {
         guard pendingSpaceTouch != nil else { return }
         longPressTimer?.invalidate()
@@ -665,14 +809,14 @@ final class KeyboardViewController: UIInputViewController {
         keyButtons.forEach { $0.setLabelHidden(false) }
     }
 
-    // 🌐 는 시스템 핸들러가 직접 받아 이동 모드 중에도 키보드 전환을 막을 수 없다(의도된 예외). 소리만 다른 키처럼 막는다.
+    // 🌐 는 시스템 핸들러가 직접 받아 이동 모드·팝업 중에도 키보드 전환을 막을 수 없다(의도된 예외). 소리만 다른 키처럼 막는다.
     @objc private func globeDown(_ key: KeyButton) {
-        guard cursorTouch == nil else { return }
+        guard cursorTouch == nil, popupTouch == nil else { return }
         player.play(.press, key.soundKind)
     }
 
     @objc private func globeUp(_ key: KeyButton) {
-        guard cursorTouch == nil else { return }
+        guard cursorTouch == nil, popupTouch == nil else { return }
         player.play(.release, key.soundKind)
     }
 
