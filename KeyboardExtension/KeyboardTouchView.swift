@@ -185,6 +185,15 @@ private final class KeyAccessibilityElement: UIAccessibilityElement {
         set {}
     }
 
+    /// 기본 구현에 맡기지 않고 키 중앙을 직접 준다. 프레임 setter 를 막아 두었으니 저장된 값이 아닌 계산된 프레임을 기준으로 해야 한다.
+    override var accessibilityActivationPoint: CGPoint {
+        get {
+            let frame = accessibilityFrame
+            return CGPoint(x: frame.midX, y: frame.midY)
+        }
+        set {}
+    }
+
     override func accessibilityActivate() -> Bool {
         onActivate()
         return true
