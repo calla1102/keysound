@@ -219,6 +219,7 @@ for o in loud:
     cands.append((o, rel))
 cands.sort(key=lambda c: -peak(c[0]))
 cands = [c for c in cands if peak(c[0]) < 0.9][:8]
+assert len(cands) >= 5, f"흑축: 겹치지 않는 눌림이 {len(cands)}개뿐이라 r0~r4 를 못 채운다 — 원본·임계값 확인"
 # 후보 8개 중 시작이 깨끗한(첫 1ms 가 작은) 5개를 고르고, 눌림끼리 RMS 를 맞춘다
 cands.sort(key=lambda c: float(np.abs(bx[c[0]:c[0] + 44]).max()))
 press5 = [bx[o:o + int(SR * 0.09)] for o, _ in cands[:5]]
@@ -247,6 +248,7 @@ for f in sorted(glob.glob(f"{SRC}/topre_*.wav")):
     rel_on = [o for o in on[1:] if p + int(SR * 0.15) <= o <= p + int(SR * 0.5)]
     topre.append((os.path.basename(f), x[p:p + int(SR * 0.1)], x[rel_on[0]:rel_on[0] + int(SR * 0.06)] if rel_on else None))
 print("topre 사용 파일:", [t[0] for t in topre])
+assert len(topre) >= 5, f"무접점: 깨끗한 파일이 {len(topre)}개뿐이라 r0~r4 를 못 채운다 — 원본·임계값 확인"
 press5 = [t[1] for t in topre[:5]]
 rels = [t[2] for t in topre if t[2] is not None]
 rel = rels[0] if rels else resample(press5[0], 1.6)
