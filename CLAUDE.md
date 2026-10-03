@@ -16,8 +16,9 @@
 ## 라이선스 ⚠️
 
 - **글쇠(github.com/iphonebreak/geulsoe-keyboard)는 라이선스가 없다 → 코드 복사 금지, 구조 참고만.**
-- 모아+(MIT)·kbsim(MIT)·Mechvibes(MIT)·daktilo(MIT/Apache)는 사용 가능하나 출처 표기 필수.
-  가져온 원본·라이선스는 `ThirdParty/` 에 두고, 앱 안 출처 표기 화면에 반영한다.
+- **kbsim 녹음은 쓰지 않는다** — YouTube 타건 영상 발췌로 확인(#23). 코드가 MIT 여도 녹음 권리는 별개다.
+- 타건음은 **녹음 파일 자체에 CC0/CC BY 가 명시되고 업로더가 직접 녹음했다고 밝힌 것**만 쓴다(NC·ND·AI 생성·출처 불명 제외).
+  원본·출처표는 `ThirdParty/`(`CREDITS.md`), 재생성은 `ThirdParty/tools/build_sounds.sh`. CC BY 는 앱 안 출처 표기가 의무다.
 - 상표명(Cherry MX·Topre 등) 대신 청축·적축·무접점 같은 일반명을 쓴다.
 
 ## 구조

@@ -9,7 +9,7 @@ final class KeySoundPlayer {
     }
 
     enum Kind {
-        /// kbsim 은 키보드 줄(0~4)마다 음높이가 다른 녹음을 쓴다.
+        /// 키보드 줄(0~4)마다 다른 녹음(또는 변주)을 써서 같은 소리가 반복되지 않게 한다.
         case generic(row: Int)
         case space, backspace, enter
     }

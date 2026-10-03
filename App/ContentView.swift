@@ -55,7 +55,11 @@ struct ContentView: View {
                 }
 
                 Section("출처") {
-                    Text("갈축·청축·적축·흑축·무접점 소리: kbsim (github.com/tplai/kbsim), MIT License, © Thomas Lai")
+                    // 자세한 파일별 출처는 ThirdParty/CREDITS.md. CC BY 는 표기가 의무라 무접점은 반드시 남긴다.
+                    Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text("적축·갈축·청축·흑축 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss 녹음, CC0")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

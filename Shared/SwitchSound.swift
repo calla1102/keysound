@@ -1,14 +1,14 @@
 /// 키보드에서 고를 수 있는 타건음. rawValue 가 App Group 에 저장된다.
 enum SwitchSound: String, CaseIterable, Identifiable {
-    /// kbsim `mxbrown` 녹음
+    /// Foxfire- 녹음(Freesound 570754, CC0). 뗌은 눌림을 깎아 만든 틱
     case brown
-    /// kbsim `mxblue` 녹음 (스페이스·엔터·백스페이스 전용 녹음 없음 → 일반 키 소리로 대체)
+    /// UberBosser 녹음(Freesound 421581~421584, CC0). 스페이스·엔터·백스페이스 전용 녹음 없음 → 일반 키 소리로 대체
     case blue
-    /// kbsim `redink` 녹음
+    /// Sadiquecat 녹음(Freesound 789628~789630, CC0)
     case red
-    /// kbsim `mxblack` 녹음
+    /// el_boss Gateron 흑축 녹음(Freesound 643559, CC0) + 잡음 제거
     case black
-    /// kbsim `topre` 녹음
+    /// MakotoHiramatsu HHKB 녹음(itch.io 「Press and Click FREE」, CC BY 4.0 — 앱 출처 표기 필수)
     case topre
     /// 자체 합성 40ms 클릭
     case click
