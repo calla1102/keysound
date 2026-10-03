@@ -104,8 +104,21 @@ final class KeyButton: UIButton {
         return theme.keyColor(role: colorRole, pressed: false, look: look, position: rampPosition)
     }
 
+    /// 직접 추가한 서브레이어(면·그라데이션)는 속성이 바뀔 때 0.25초 암시적 애니메이션이 붙어, 키보드가 열리며 색이
+    /// 서서히 채워지고 눌림 반응이 늦어 보인다(2026-10-04 실기기). 키 모양·색 변경은 항상 즉시 적용한다.
+    private func withoutImplicitAnimation(_ body: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        body()
+        CATransaction.commit()
+    }
+
     /// 배경·그림자·외곽선·그라데이션을 현재 상태·라이트/다크에 맞게 칠한다. 레이어는 새로 만들지 않는다.
     private func updateAppearance() {
+        withoutImplicitAnimation(applyAppearance)
+    }
+
+    private func applyAppearance() {
         let look = theme.appearance(dark: isDark)
         let relief = theme.relief
         let base = currentThemeColor
@@ -206,9 +219,11 @@ final class KeyButton: UIButton {
         super.layoutSubviews()
         if bounds != laidOutBounds {
             laidOutBounds = bounds
-            layoutLayers()
-            // 그림자 모양을 미리 알려 줘야 키마다 offscreen 렌더링을 하지 않는다. 반경은 본체 레이어와 같다
-            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+            withoutImplicitAnimation {
+                layoutLayers()
+                // 그림자 모양을 미리 알려 줘야 키마다 offscreen 렌더링을 하지 않는다. 반경은 본체 레이어와 같다
+                layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+            }
         }
     }
 
