@@ -109,7 +109,7 @@ struct KeyboardThemePreview: View {
 
     private func keyView(_ key: Key) -> some View {
         let capsule = theme.keyShape == .capsule
-        let shape = RoundedRectangle(cornerRadius: capsule ? 17 : theme.cornerRadius * 0.8)
+        let shape: AnyShape = capsule ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: theme.cornerRadius * 0.8))
         let minHeight: CGFloat = compact ? 28 : 34
         let base = color(for: key)
         let relief = theme.relief
@@ -132,7 +132,7 @@ struct KeyboardThemePreview: View {
                     if let tile { PatternView(tile: tile, ink: look.text.color, alpha: theme.patternInkAlpha).clipShape(shape) }
                     reliefOverlay(relief, base: base, shape: shape, capsule: capsule)
                     if let border {
-                        shape.strokeBorder(border.color.color, lineWidth: border.width)
+                        shape.stroke(border.color.color, lineWidth: border.width * 2).clipShape(shape)
                     }
                 }
                 .background {
@@ -148,7 +148,7 @@ struct KeyboardThemePreview: View {
     }
 
     @ViewBuilder
-    private func reliefOverlay(_ relief: KeyRelief, base: ThemeColor, shape: RoundedRectangle, capsule: Bool) -> some View {
+    private func reliefOverlay(_ relief: KeyRelief, base: ThemeColor, shape: AnyShape, capsule: Bool) -> some View {
         switch relief {
         case .flat:
             EmptyView()

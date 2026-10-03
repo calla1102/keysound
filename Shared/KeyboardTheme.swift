@@ -454,4 +454,15 @@ extension KeyboardTheme {
     func cornerRadius(forHeight height: Double) -> Double {
         keyShape == .capsule ? height / 2 : cornerRadius
     }
+
+    /// 레이어 크기(`width`×`height`)에 맞게 자른 모서리 반경. 반경이 짧은 변의 절반을 넘으면 CoreAnimation 이
+    /// 모서리를 뾰족한 렌즈 모양으로 그리므로 `min(width, height) / 2` 로 막는다. 레이어마다 자기 크기로 따로 부른다.
+    static func clampedRadius(_ radius: Double, width: Double, height: Double) -> Double {
+        max(0, min(radius, min(width, height) / 2))
+    }
+
+    /// 이 테마 키의 반경(자기 크기 기준). 캡슐은 높이/2(폭이 높이 이하면 원), 그 외는 `cornerRadius`.
+    func keyRadius(width: Double, height: Double) -> Double {
+        Self.clampedRadius(keyShape == .capsule ? height / 2 : cornerRadius, width: width, height: height)
+    }
 }

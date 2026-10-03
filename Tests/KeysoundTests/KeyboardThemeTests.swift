@@ -263,4 +263,24 @@ final class KeyboardThemeTests: XCTestCase {
             XCTAssertEqual(KeyboardTheme(storedValue: t.rawValue), t)
         }
     }
+
+    func testClampedRadiusNeverExceedsHalfOfShortSide() {
+        XCTAssertEqual(KeyboardTheme.clampedRadius(21, width: 100, height: 42), 21)
+        // 면 높이(높이-두께)가 본체 반경(높이/2)의 2배보다 작을 때 — 렌즈 모양이 되는 경우
+        XCTAssertEqual(KeyboardTheme.clampedRadius(21, width: 100, height: 39), 19.5)
+        // 폭이 더 좁으면 폭 기준(원)
+        XCTAssertEqual(KeyboardTheme.clampedRadius(21, width: 30, height: 42), 15)
+        XCTAssertEqual(KeyboardTheme.clampedRadius(13, width: 100, height: 10), 5)
+        XCTAssertEqual(KeyboardTheme.clampedRadius(-3, width: 10, height: 10), 0)
+        XCTAssertEqual(KeyboardTheme.clampedRadius(5, width: 0, height: 0), 0)
+    }
+
+    func testCapsuleKeyRadiusIsPillOrCircle() {
+        let t = KeyboardTheme.cottonCandy
+        XCTAssertEqual(t.keyRadius(width: 120, height: 42), 21)   // 알약: 양 끝 반원
+        XCTAssertEqual(t.keyRadius(width: 42, height: 42), 21)    // 원
+        XCTAssertEqual(t.keyRadius(width: 30, height: 42), 15)    // 폭이 좁으면 타원 대신 원 쪽으로 클램프
+        XCTAssertEqual(KeyboardTheme.toffee.keyRadius(width: 50, height: 10), 5)
+        XCTAssertEqual(KeyboardTheme.milk.keyRadius(width: 50, height: 42), 7)
+    }
 }

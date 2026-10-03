@@ -40,7 +40,9 @@ final class KeyButton: UIButton {
     }
 
     /// - Parameter characterIndex: 글자 키 순서(0부터, 키보드 순서). 팔레트·무늬를 고르는 데 쓴다.
-    init(spec: KeySpec, soundKind: KeySoundPlayer.Kind, theme: KeyboardTheme, characterIndex: Int = 0) {
+    /// - Parameter estimatedPosition: 레이아웃 전에 쓸 위치 추정값(행 수·행 안 순서로 계산). 레이아웃 뒤 실제 값으로 바뀐다.
+    init(spec: KeySpec, soundKind: KeySoundPlayer.Kind, theme: KeyboardTheme, characterIndex: Int = 0,
+         estimatedPosition: (x: Double, y: Double)? = nil) {
         self.spec = spec
         self.theme = theme
         self.soundKind = soundKind
@@ -56,6 +58,7 @@ final class KeyButton: UIButton {
             tile = nil
         }
         super.init(frame: .zero)
+        if theme.paletteMode != .cycle { palettePosition = estimatedPosition }
 
         titleLabel?.font = theme.keyFont(characterKey: Self.isCharacterKey(spec.action))
         installLayers()
@@ -73,7 +76,9 @@ final class KeyButton: UIButton {
             layer.insertSublayer(face, at: 0)
             faceLayer = face
         }
+        faceLayer?.zPosition = -2
         let gradient = CAGradientLayer()
+        gradient.zPosition = -1
         switch relief {
         case .flat:
             return
@@ -109,6 +114,7 @@ final class KeyButton: UIButton {
 
         let textColor = KeyboardTheme.textColor(role: colorRole, in: look, keyColor: base).uiColor
         tintColor = textColor
+        imageView?.tintColor = textColor
         setTitleColor(textColor, for: .normal)
 
         // 그림자: blur 가 있으면 번지는 불빛, 없으면 선명한 1pt. 모양은 layoutSubviews 에서 shadowPath 로 알려 준다
@@ -128,8 +134,9 @@ final class KeyButton: UIButton {
         borderTarget.borderColor = border?.color.uiColor.cgColor
 
         if let faceLayer {
-            layer.backgroundColor = base.darkened(by: 0.28).withAlpha(1).uiColor.cgColor
+            // `backgroundColor = nil` 이 layer.backgroundColor 도 지우므로 먼저 비우고 측면색을 넣는다
             backgroundColor = nil
+            layer.backgroundColor = base.darkened(by: 0.28).withAlpha(1).uiColor.cgColor
             faceLayer.backgroundColor = surface.cgColor
         } else {
             backgroundColor = surface
@@ -149,43 +156,41 @@ final class KeyButton: UIButton {
         layoutLayers()
     }
 
-    /// 프레임·모서리를 bounds 에 맞춘다. 키 높이가 바뀔 때(캡슐 반경)와 눌림(볼록 면 위치)에 부른다.
+    /// 프레임·모서리를 bounds 에 맞춘다. 반경은 레이어마다 자기 높이·폭으로 따로 계산해 막는다(`clampedRadius`).
     private func layoutLayers() {
-        let height = bounds.height
-        let width = bounds.width
-        let radius = CGFloat(theme.cornerRadius(forHeight: Double(height)))
-        layer.cornerRadius = radius
+        let width = Double(bounds.width), height = Double(bounds.height)
+        let capsule = theme.keyShape == .capsule
+        layer.cornerRadius = CGFloat(theme.keyRadius(width: width, height: height))
+        layer.cornerCurve = .circular
 
-        var surfaceSize = CGSize(width: width, height: height)
+        var surface = (width: width, height: height)
         if let faceLayer {
-            let thickness = CGFloat(theme.sideThickness)
+            let thickness = theme.sideThickness
             let visible = isHighlighted ? 1 : thickness
-            surfaceSize.height = max(0, height - thickness)
+            surface.height = max(0, height - thickness)
             // 눌리면 면이 (두께 - 1)pt 내려와 측면 띠가 1pt 만 남는다
-            faceLayer.frame = CGRect(x: 0, y: thickness - visible, width: width, height: surfaceSize.height)
-            faceLayer.cornerRadius = theme.keyShape == .capsule ? surfaceSize.height / 2 : radius
+            faceLayer.frame = CGRect(x: 0, y: thickness - visible, width: width, height: surface.height)
+            faceLayer.cornerRadius = CGFloat(theme.keyRadius(width: surface.width, height: surface.height))
+            faceLayer.cornerCurve = .circular
         }
         guard let reliefLayer else { return }
-        let capsule = theme.keyShape == .capsule
+        let surfaceRadius = theme.keyRadius(width: surface.width, height: surface.height)
+        reliefLayer.cornerCurve = .circular
         switch theme.relief {
         case .raised, .glass:
-            let fraction: CGFloat = theme.relief == .raised ? 0.25 : 0.35
-            if capsule {
-                // 알약·원은 위쪽 띠가 모서리 밖으로 나오지 않게 안쪽으로 들여 작은 반사광으로 그린다
-                let inset = surfaceSize.height * 0.28
-                let h = surfaceSize.height * fraction
-                reliefLayer.frame = CGRect(x: inset, y: 2, width: max(0, surfaceSize.width - inset * 2), height: h)
-                reliefLayer.cornerRadius = h / 2
-                reliefLayer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-            } else {
-                reliefLayer.frame = CGRect(x: 0, y: 0, width: surfaceSize.width, height: surfaceSize.height * fraction)
-                reliefLayer.cornerRadius = faceLayer?.cornerRadius ?? radius
-                // 위쪽 띠는 위 모서리만 둥글게(mask 없이 maskedCorners 만 쓴다)
-                reliefLayer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-            }
+            let h = surface.height * (theme.relief == .raised ? 0.25 : 0.35)
+            // 면의 둥근 모서리 밖으로 하이라이트가 삐져나오지 않게 가로를 모서리 반경만큼 들인다
+            let inset = capsule ? surface.height * 0.28 : min(surfaceRadius * 0.6, surface.width / 4)
+            let w = max(0, surface.width - inset * 2)
+            let y = capsule ? 2.0 : 0.0
+            reliefLayer.frame = CGRect(x: inset, y: y, width: w, height: h)
+            reliefLayer.cornerRadius = CGFloat(KeyboardTheme.clampedRadius(capsule ? h / 2 : surfaceRadius, width: w, height: h))
+            reliefLayer.maskedCorners = capsule
+                ? [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+                : [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         case .dished:
-            reliefLayer.frame = CGRect(origin: .zero, size: surfaceSize)
-            reliefLayer.cornerRadius = radius
+            reliefLayer.frame = CGRect(x: 0, y: 0, width: surface.width, height: surface.height)
+            reliefLayer.cornerRadius = CGFloat(surfaceRadius)
             reliefLayer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         case .flat:
             break
@@ -202,15 +207,16 @@ final class KeyButton: UIButton {
         if bounds != laidOutBounds {
             laidOutBounds = bounds
             layoutLayers()
-            // 그림자 모양을 미리 알려 줘야 키마다 offscreen 렌더링을 하지 않는다
+            // 그림자 모양을 미리 알려 줘야 키마다 offscreen 렌더링을 하지 않는다. 반경은 본체 레이어와 같다
             layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
         }
-        if faceLayer != nil {
-            // 볼록 키의 라벨은 아래 측면 띠를 뺀 윗면 중앙에 둔다
-            let shift = CGFloat(theme.sideThickness) / 2
-            titleLabel?.center.y -= shift
-            imageView?.center.y -= shift
-        }
+    }
+
+    /// 볼록 키는 아래 측면 띠를 뺀 윗면 가운데에 라벨·아이콘을 둔다(레이아웃 뒤에 center 를 옮기지 않고 콘텐츠 영역을 줄인다).
+    override func contentRect(forBounds bounds: CGRect) -> CGRect {
+        let rect = super.contentRect(forBounds: bounds)
+        guard faceLayer != nil else { return rect }
+        return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: max(0, rect.height - CGFloat(theme.sideThickness)))
     }
 
     override var isHighlighted: Bool {
@@ -238,7 +244,8 @@ final class KeyButton: UIButton {
     func setLabel(title: String? = nil, symbol: String? = nil) {
         setTitle(title, for: .normal)
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
-        setImage(symbol.flatMap { UIImage(systemName: $0, withConfiguration: config) }, for: .normal)
+        // 아이콘은 항상 템플릿으로 그려 tintColor(글자색)를 따르게 한다
+        setImage(symbol.flatMap { UIImage(systemName: $0, withConfiguration: config)?.withRenderingMode(.alwaysTemplate) }, for: .normal)
     }
 
     private static func isCharacterKey(_ action: KeyAction) -> Bool {

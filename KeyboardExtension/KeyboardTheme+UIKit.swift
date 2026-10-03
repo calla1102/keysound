@@ -42,8 +42,22 @@ extension KeyboardTheme {
 /// 번들 글꼴 로더. Info.plist `UIAppFonts` 로 등록돼 있으면 바로 찾고, 아니면 번들 파일을 직접 등록해 본다. 둘 다 안 되면 nil.
 enum ThemeFontLoader {
     private static var triedRegister = false
+    /// 크기별 캐시 — 키마다 UIFont 를 다시 만들지 않는다(5.4MB 글꼴이라 첫 로드가 무겁다). 시스템 글꼴 프리셋은 여기를 아예 부르지 않는다.
+    private static var cache: [CGFloat: UIFont] = [:]
+    private static var failed = false
 
     static func pixelFont(size: CGFloat) -> UIFont? {
+        if let cached = cache[size] { return cached }
+        if failed { return nil }
+        if let font = loadPixelFont(size: size) {
+            cache[size] = font
+            return font
+        }
+        failed = true
+        return nil
+    }
+
+    private static func loadPixelFont(size: CGFloat) -> UIFont? {
         if let font = UIFont(name: ThemeFont.pixelFontName, size: size) { return font }
         guard !triedRegister else { return nil }
         triedRegister = true

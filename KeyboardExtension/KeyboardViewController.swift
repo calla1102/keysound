@@ -339,6 +339,10 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Layout
 
     private func rebuildKeys() {
+        #if DEBUG
+        let started = CFAbsoluteTimeGetCurrent()
+        defer { NSLog("[Keysound] rebuildKeys(%@) %.1fms", theme.rawValue, (CFAbsoluteTimeGetCurrent() - started) * 1000) }
+        #endif
         rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         keyButtons = []
         defer { touchView.keys = keyButtons }
@@ -360,8 +364,10 @@ final class KeyboardViewController: UIInputViewController {
             // 눌림 소리는 줄(R0~R4)마다 다른 변주를 쓴다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
             let soundRow = index == rows.count - 1 ? 4 : index + 1
             var flexibles: [UIView] = []
-            for spec in specs {
-                let keyView = spec.action == .spacer ? UIView() : makeKey(spec, soundRow: soundRow)
+            let estimates = theme.paletteMode == .cycle ? [] : Self.estimatedCenters(of: specs)
+            for (specIndex, spec) in specs.enumerated() {
+                let estimate = estimates.isEmpty ? nil : (x: estimates[specIndex], y: (Double(index) + 0.5) / Double(rows.count))
+                let keyView = spec.action == .spacer ? UIView() : makeKey(spec, soundRow: soundRow, estimate: estimate)
                 row.addArrangedSubview(keyView)
                 switch spec.width {
                 case .units(let units):
@@ -384,6 +390,28 @@ final class KeyboardViewController: UIInputViewController {
         refreshLabels()
     }
 
+    /// 레이아웃 전에 키 중심의 가로 위치 비율(0...1)을 폭 배수로 추정한다. flexible 은 남는 폭(없으면 4칸)을 나눠 갖는다.
+    /// 레이아웃이 끝나면 `updateHorizontalPositions` 가 실제 값으로 덮어쓰므로 첫 칠(색 깜빡임)을 줄이는 용도다.
+    static func estimatedCenters(of specs: [KeySpec], totalUnits: Double = 10) -> [Double] {
+        var fixed = 0.0, flexibleCount = 0.0
+        for spec in specs {
+            switch spec.width {
+            case .units(let u): fixed += Double(u)
+            case .flexible: flexibleCount += 1
+            }
+        }
+        let flexUnits = flexibleCount > 0 ? max(totalUnits - fixed, flexibleCount) / flexibleCount : 0
+        let widths = specs.map { spec -> Double in
+            if case .units(let u) = spec.width { Double(u) } else { flexUnits }
+        }
+        let total = max(widths.reduce(0, +), 0.001)
+        var cursor = 0.0
+        return widths.map { w in
+            defer { cursor += w }
+            return (cursor + w / 2) / total
+        }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateHorizontalPositions()
@@ -402,7 +430,7 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    private func makeKey(_ spec: KeySpec, soundRow: Int) -> KeyButton {
+    private func makeKey(_ spec: KeySpec, soundRow: Int, estimate: (x: Double, y: Double)?) -> KeyButton {
         let kind: KeySoundPlayer.Kind
         switch spec.action {
         case .space: kind = .space
@@ -413,7 +441,8 @@ final class KeyboardViewController: UIInputViewController {
 
         // 팔레트·무늬는 글자 키 순서(레이어를 새로 만들 때마다 0부터)로 고른다
         let characterIndex = keyButtons.filter { if case .character = $0.spec.action { true } else { false } }.count
-        let key = KeyButton(spec: spec, soundKind: kind, theme: theme, characterIndex: characterIndex)
+        let key = KeyButton(spec: spec, soundKind: kind, theme: theme, characterIndex: characterIndex,
+                            estimatedPosition: estimate)
         if currentLayer == .symbols || currentLayer == .moreSymbols, case .character(let c) = spec.action {
             key.alternates = AlternateCharacters.alternates(for: c)
         }
