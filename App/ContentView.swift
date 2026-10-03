@@ -5,9 +5,8 @@ struct ContentView: View {
     @AppStorage(AppGroup.Key.selectedSound, store: AppGroup.defaults)
     private var selectedSound: SwitchSound = .default
 
-    @AppStorage(KeyboardTheme.storageKey, store: AppGroup.defaults)
-    private var selectedThemeID: String = KeyboardTheme.default.rawValue
-    private var selectedTheme: KeyboardTheme { KeyboardTheme(storedValue: selectedThemeID) }
+    @AppStorage(AppGroup.Key.selectedTheme, store: AppGroup.defaults)
+    private var selectedTheme: KeyboardTheme = .default
 
     @State private var testText = ""
     @FocusState private var isTestFieldFocused: Bool
@@ -99,7 +98,7 @@ extension ContentView {
                 Button {
                     // 키보드는 다시 열릴 때 선택을 읽으므로 내려 둔다
                     isTestFieldFocused = false
-                    selectedThemeID = theme.rawValue
+                    selectedTheme = theme
                 } label: {
                     HStack {
                         VStack(alignment: .leading) {

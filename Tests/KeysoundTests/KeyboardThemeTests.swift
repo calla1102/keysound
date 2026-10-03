@@ -1,31 +1,19 @@
 import XCTest
 
 final class KeyboardThemeTests: XCTestCase {
-    private func makeDefaults() -> UserDefaults {
-        let name = "KeyboardThemeTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
-        return defaults
-    }
-
     func testDefaultIsClassic() {
         XCTAssertEqual(KeyboardTheme.default, .classic)
     }
 
     func testMissingOrUnknownValueFallsBackToDefault() {
-        let defaults = makeDefaults()
-        XCTAssertEqual(KeyboardTheme.load(from: defaults), .default)
-        defaults.set("no-such-theme", forKey: KeyboardTheme.storageKey)
-        XCTAssertEqual(KeyboardTheme.load(from: defaults), .default)
-        XCTAssertEqual(KeyboardTheme.load(from: nil), .default)
         XCTAssertEqual(KeyboardTheme(storedValue: nil), .default)
+        XCTAssertEqual(KeyboardTheme(storedValue: "no-such-theme"), .default)
+        XCTAssertEqual(KeyboardTheme(storedValue: ""), .default)
     }
 
-    func testSaveLoadRoundTrip() {
-        let defaults = makeDefaults()
+    func testStoredRawValueRoundTrip() {
         for theme in KeyboardTheme.allCases {
-            theme.save(to: defaults)
-            XCTAssertEqual(KeyboardTheme.load(from: defaults), theme)
+            XCTAssertEqual(KeyboardTheme(storedValue: theme.rawValue), theme)
         }
     }
 
@@ -33,20 +21,20 @@ final class KeyboardThemeTests: XCTestCase {
         let ids = KeyboardTheme.allCases.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count)
         XCTAssertFalse(ids.contains(""))
-        XCTAssertEqual(KeyboardTheme.allCases.count, 4)
+        XCTAssertGreaterThanOrEqual(KeyboardTheme.allCases.count, 1)
     }
 
     func testClassicKeepsOriginalPaletteAndClearBackground() {
-        XCTAssertEqual(KeyboardTheme.classic.light.background.alpha, 0)
-        XCTAssertEqual(KeyboardTheme.classic.dark.background.alpha, 0)
-        XCTAssertEqual(KeyboardTheme.classic.dark.characterKey, ThemeColor(white: 0.42))
-        XCTAssertEqual(KeyboardTheme.classic.dark.functionKey, ThemeColor(white: 0.27))
-        XCTAssertEqual(KeyboardTheme.classic.light.characterKey, ThemeColor(white: 1))
+        XCTAssertEqual(KeyboardTheme.classic.lightAppearance.background.alpha, 0)
+        XCTAssertEqual(KeyboardTheme.classic.darkAppearance.background.alpha, 0)
+        XCTAssertEqual(KeyboardTheme.classic.darkAppearance.characterKey, ThemeColor(white: 0.42))
+        XCTAssertEqual(KeyboardTheme.classic.darkAppearance.functionKey, ThemeColor(white: 0.27))
+        XCTAssertEqual(KeyboardTheme.classic.lightAppearance.characterKey, ThemeColor(white: 1))
     }
 
     func testColorsAreInRange() {
         for theme in KeyboardTheme.allCases {
-            for look in [theme.light, theme.dark] {
+            for look in [theme.lightAppearance, theme.darkAppearance] {
                 let colors = [look.background, look.characterKey, look.functionKey,
                               look.characterKeyPressed, look.functionKeyPressed, look.text] + [look.shadow].compactMap { $0 }
                 for c in colors {

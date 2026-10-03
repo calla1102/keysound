@@ -1,6 +1,6 @@
 import Foundation
 
-/// 색 하나(sRGB 0...1). UIKit·SwiftUI 변환은 `KeyboardTheme+Color.swift` 에서 한다.
+/// 색 하나(sRGB 0...1). UIKit·SwiftUI 변환은 각 타깃의 `KeyboardTheme+UIKit.swift`·`KeyboardTheme+SwiftUI.swift` 에서 한다.
 struct ThemeColor: Equatable {
     var red: Double
     var green: Double
@@ -36,7 +36,7 @@ struct ThemeAppearance: Equatable {
 }
 
 /// 키보드에서 고를 수 있는 자판 디자인 프리셋. rawValue(고유 id)가 App Group 에 저장된다.
-/// 새 프리셋은 case 와 `displayName`·`summary`·`cornerRadius`·`light`·`dark` 를 추가한다.
+/// 새 프리셋은 case 와 `displayName`·`summary`·`cornerRadius`·`lightAppearance`·`darkAppearance` 를 추가한다.
 enum KeyboardTheme: String, CaseIterable, Identifiable {
     /// 현재 iOS 기본 키보드와 비슷한 색
     case classic
@@ -82,10 +82,10 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
     }
 
     func appearance(dark: Bool) -> ThemeAppearance {
-        dark ? self.dark : light
+        dark ? darkAppearance : lightAppearance
     }
 
-    var light: ThemeAppearance {
+    var lightAppearance: ThemeAppearance {
         switch self {
         case .classic:
             ThemeAppearance(
@@ -119,7 +119,7 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    var dark: ThemeAppearance {
+    var darkAppearance: ThemeAppearance {
         switch self {
         case .classic:
             ThemeAppearance(
@@ -162,19 +162,4 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         functionKeyPressed: ThemeColor(white: 0.30),
         text: ThemeColor(white: 0.95),
         shadow: ThemeColor(white: 0, alpha: 0.5))
-}
-
-// MARK: - 저장
-
-extension KeyboardTheme {
-    /// App Group 저장 키
-    static let storageKey = "selectedKeyboardTheme"
-
-    static func load(from defaults: UserDefaults?) -> KeyboardTheme {
-        KeyboardTheme(storedValue: defaults?.string(forKey: storageKey))
-    }
-
-    func save(to defaults: UserDefaults?) {
-        defaults?.set(rawValue, forKey: Self.storageKey)
-    }
 }

@@ -29,6 +29,7 @@ struct KeyboardThemePreview: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .background {
             // 투명 배경(기본)은 실제 키보드에서 시스템 배경이 비치므로 회색으로 흉내 낸다
             RoundedRectangle(cornerRadius: 10)
@@ -42,6 +43,8 @@ struct KeyboardThemePreview: View {
         let shape = RoundedRectangle(cornerRadius: theme.cornerRadius * 0.8)
         return Text(label)
             .font(.callout)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .foregroundStyle(look.text.color)
             .frame(maxWidth: .infinity, minHeight: 34)
             .background {

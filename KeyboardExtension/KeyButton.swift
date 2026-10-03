@@ -13,20 +13,24 @@ final class KeyButton: UIButton {
     private let pressedColor: UIColor
     private let baseColor: UIColor
 
-    init(spec: KeySpec, soundKind: KeySoundPlayer.Kind) {
+    private let theme: KeyboardTheme
+
+    init(spec: KeySpec, soundKind: KeySoundPlayer.Kind, theme: KeyboardTheme) {
         self.spec = spec
+        self.theme = theme
         self.soundKind = soundKind
         let isFunction = Self.isFunctionKey(spec.action)
-        baseColor = isFunction ? Palette.functionKey : Palette.characterKey
+        baseColor = isFunction ? theme.dynamicColor(\.functionKey) : theme.dynamicColor(\.characterKey)
         normalColor = baseColor
-        pressedColor = isFunction ? Palette.functionKeyPressed : Palette.characterKeyPressed
+        pressedColor = isFunction ? theme.dynamicColor(\.functionKeyPressed) : theme.dynamicColor(\.characterKeyPressed)
         super.init(frame: .zero)
 
         backgroundColor = normalColor
-        tintColor = Palette.text
-        setTitleColor(Palette.text, for: .normal)
+        let textColor = theme.dynamicColor(\.text)
+        tintColor = textColor
+        setTitleColor(textColor, for: .normal)
         titleLabel?.font = .systemFont(ofSize: Self.isCharacterKey(spec.action) ? 22 : 16)
-        layer.cornerRadius = Palette.cornerRadius
+        layer.cornerRadius = CGFloat(theme.cornerRadius)
         layer.shadowOffset = CGSize(width: 0, height: 1)
         layer.shadowRadius = 0
         updateShadow()
@@ -37,7 +41,7 @@ final class KeyButton: UIButton {
     }
 
     private func updateShadow() {
-        if let color = Palette.shadowColor(for: traitCollection) {
+        if let color = theme.shadowUIColor(for: traitCollection) {
             layer.shadowColor = color.cgColor
             layer.shadowOpacity = 1
         } else {
@@ -63,7 +67,7 @@ final class KeyButton: UIButton {
     /// 켜진 토글(캡스락 등)은 글자 키 색으로 밝게 보인다.
     func setEmphasized(_ on: Bool) {
         isEmphasized = on
-        normalColor = on ? Palette.characterKey : baseColor
+        normalColor = on ? theme.dynamicColor(\.characterKey) : baseColor
         backgroundColor = isHighlighted ? pressedColor : normalColor
     }
 
