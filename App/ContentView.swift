@@ -56,7 +56,7 @@ struct ContentView: View {
 
                 Section("출처") {
                     // 자세한 파일별 출처는 ThirdParty/CREDITS.md. CC BY 는 표기가 의무라 무접점은 반드시 남긴다.
-                    Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0")
+                    Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Text("적축·갈축·청축·흑축 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss 녹음, CC0")
