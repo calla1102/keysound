@@ -2,6 +2,7 @@ import Foundation
 
 /// 타건음 한 종의 출처. 원본 근거는 ThirdParty/CREDITS.md 와 ThirdParty/<녹음자>/LICENSE* 이고, 여기는 그 내용을 앱 안 표기용으로 옮긴 것이다.
 /// 소리를 추가하면 `SwitchSound.credit` 의 switch 에 case 를 더한다(빠뜨리면 컴파일 에러).
+/// 작품명은 CC BY 4.0 의 필수 표기가 아니라서, 원제목에 상표명이 있으면 nil 로 두고 출처 링크로 원본을 가리킨다.
 struct SoundCredit: Equatable {
     enum License: Equatable {
         case cc0
@@ -88,7 +89,7 @@ extension SwitchSound {
                 modification: "KEY_PRESS 녹음 9개를 골라 모노 44.1kHz 로 변환하고 키 단위로 잘라 음량·페이드를 조정함"))
         case .membrane:
             .init(origin: .recording(
-                recorder: "Geoff-Bremner-Audio", workTitle: "HP Office Keyboard",
+                recorder: "Geoff-Bremner-Audio", workTitle: nil,
                 links: [link("Freesound 705787", "https://freesound.org/s/705787/")],
                 license: .ccBy4,
                 modification: "연속 타이핑 녹음에서 키 단위로 잘라 모노 44.1kHz 로 변환하고 음량·페이드를 조정함"))
@@ -118,7 +119,7 @@ extension SwitchSound {
                 modification: commonModification))
         case .slim:
             .init(origin: .recording(
-                recorder: "SoundsLikeFoley", workTitle: "Typing on Logitech K811 keyboard",
+                recorder: "SoundsLikeFoley", workTitle: nil,
                 links: [link("Freesound 421031", "https://freesound.org/people/SoundsLikeFoley/sounds/421031/")],
                 license: .ccBy4,
                 modification: "연속 타이핑 녹음에서 키 단위로 잘라 모노 44.1kHz 로 변환하고 음량·페이드를 조정함"))

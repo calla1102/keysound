@@ -14,7 +14,7 @@ final class SoundCreditsTests: XCTestCase {
 
     func testRecordingCreditsHaveRequiredFields() {
         for sound in SwitchSound.allCases {
-            guard case let .recording(recorder, workTitle, links, license, modification)? = sound.credit?.origin else { continue }
+            guard case let .recording(recorder, workTitle, links, _, modification)? = sound.credit?.origin else { continue }
             XCTAssertFalse(recorder.isEmpty, sound.rawValue)
             XCTAssertFalse(links.isEmpty, sound.rawValue)
             XCTAssertFalse(modification.isEmpty, sound.rawValue)
@@ -22,9 +22,9 @@ final class SoundCreditsTests: XCTestCase {
                 XCTAssertEqual(link.url.scheme, "https", sound.rawValue)
                 XCTAssertFalse(link.title.isEmpty, sound.rawValue)
             }
-            // CC BY 4.0 §3(a)(1): 저작자·라이선스 URI·변경 고지 + 작품명(관례상 함께 적는다)
-            if license.requiresAttribution {
-                XCTAssertFalse(workTitle?.isEmpty ?? true, "\(sound.rawValue) CC BY 작품명 누락")
+            // 작품명은 CC BY 4.0 필수가 아니다. 적는다면 비어 있으면 안 된다.
+            if let workTitle {
+                XCTAssertFalse(workTitle.isEmpty, sound.rawValue)
             }
         }
     }
@@ -43,5 +43,19 @@ final class SoundCreditsTests: XCTestCase {
             return false
         }
         XCTAssertEqual(Set(ccBy), [.topre, .membrane, .slim])
+    }
+
+    /// 화면에 상표명을 쓰지 않는다(CLAUDE.md 라이선스 규칙). 링크 URL 은 화면 글자가 아니라 검사하지 않는다.
+    func testNoTrademarkNamesOnScreen() {
+        let trademarks = ["Cherry", "Topre", "Gateron", "Kailh", "Logitech", "HP ", "IBM", "Apple"]
+        for sound in SwitchSound.allCases {
+            guard case let .recording(recorder, workTitle, links, _, modification)? = sound.credit?.origin else { continue }
+            let texts = [sound.displayName, recorder, workTitle ?? "", modification] + links.map(\.title)
+            for text in texts {
+                for mark in trademarks {
+                    XCTAssertFalse(text.localizedCaseInsensitiveContains(mark), "\(sound.rawValue): \(text)")
+                }
+            }
+        }
     }
 }

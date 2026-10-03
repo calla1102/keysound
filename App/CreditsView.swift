@@ -10,7 +10,7 @@ struct CreditsView: View {
     var body: some View {
         List {
             Section {
-                Text("Keysound 의 타건음은 아래 녹음을 바탕으로 만들었습니다. 각 녹음은 저작자가 밝힌 라이선스에 따라 사용했으며, 라이선스를 바꾸거나 저작자가 이 앱을 보증한다는 뜻이 아닙니다. 원본은 저작자가 어떠한 보증 없이 있는 그대로 제공합니다.")
+                Text("「기본 클릭」을 뺀 Keysound의 타건음은 아래 녹음을 가공해 만들었습니다. 원본 녹음은 각각 표시된 라이선스를 그대로 따르며, 저작자가 이 앱을 후원하거나 보증한다는 뜻은 아닙니다. 원본은 각 라이선스의 보증 부인 조항에 따라 어떠한 보증 없이 있는 그대로 제공됩니다.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
