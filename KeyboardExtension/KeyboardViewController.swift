@@ -707,8 +707,6 @@ final class KeyboardViewController: UIInputViewController {
             }
             shift.reset()
             rebuildKeys()
-            // 눌렀던 키가 사라졌으니 VoiceOver 에 화면 구성이 바뀌었음을 알린다
-            UIAccessibility.post(notification: .layoutChanged, argument: nil)
         case .backspace, .nextKeyboard, .spacer:
             // 백스페이스는 keyDown 에서 따로 처리하고, 🌐 는 시스템 핸들러가 처리한다
             break

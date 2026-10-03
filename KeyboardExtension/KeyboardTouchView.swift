@@ -13,6 +13,10 @@ final class KeyboardTouchView: UIView {
             framesDirty = true
             setNeedsLayout()
             rebuildAccessibilityElements()
+            // 레이어 전환·입력란 종류 변경으로 키가 바뀌었음을 VoiceOver 에 알린다. 화면에 뜨기 전(첫 구성)에는 알리지 않는다
+            if window != nil && !oldValue.isEmpty {
+                UIAccessibility.post(notification: .layoutChanged, argument: nil)
+            }
         }
     }
 
@@ -61,6 +65,8 @@ final class KeyboardTouchView: UIView {
     }
 
     private func activate(_ key: KeyButton) {
+        // VoiceOver 가 재구성 전 요소를 아직 들고 있으면 사라진 키가 눌린다. 현재 키만 받는다
+        guard keys.contains(where: { $0 === key }) else { return }
         onKeyActivate?(key)
     }
 
