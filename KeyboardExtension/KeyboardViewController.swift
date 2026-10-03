@@ -306,7 +306,7 @@ final class KeyboardViewController: UIInputViewController {
             // 다른 줄의 기준 키와 폭 제약을 걸려면 먼저 같은 뷰 계층에 붙어 있어야 한다
             rowsStack.addArrangedSubview(row)
 
-            // kbsim 녹음은 줄(R0~R4)마다 음높이가 다르다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
+            // 눌림 소리는 줄(R0~R4)마다 다른 변주를 쓴다. 숫자 줄 R0 은 비우고 글자 줄을 R1~R3, 맨 아랫줄을 R4 로 쓴다.
             let soundRow = index == rows.count - 1 ? 4 : index + 1
             var flexibles: [UIView] = []
             for spec in specs {
