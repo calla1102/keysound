@@ -59,12 +59,6 @@ struct ContentView: View {
                     }
                 }
 
-                Section("써 보기") {
-                    TextField("여기를 눌러 Keysound 키보드로 입력해 보세요", text: $testText, axis: .vertical)
-                        .lineLimit(3...6)
-                        .focused($isTestFieldFocused)
-                }
-
                 Section("시작하기") {
                     Label("설정 > 일반 > 키보드 > 키보드 > 새로운 키보드 추가에서 Keysound를 추가하세요.", systemImage: "keyboard")
                     Label("「전체 접근 허용」은 필요 없습니다. 입력한 내용은 어디로도 전송되지 않습니다.", systemImage: "lock")
@@ -77,12 +71,26 @@ struct ContentView: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .background(KeyboardDismissTap())
+            // 소리·디자인을 고른 뒤 바로 써 볼 수 있게 입력칸을 목록 위에 고정한다
+            .safeAreaInset(edge: .top) { testField }
             .navigationTitle("Keysound")
         }
     }
 }
 
 extension ContentView {
+    var testField: some View {
+        TextField("여기를 눌러 Keysound 키보드로 입력해 보세요", text: $testText, axis: .vertical)
+            .lineLimit(1...3)
+            .focused($isTestFieldFocused)
+            .padding(12)
+            .background(.background, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.bar)
+            .accessibilityLabel("써 보기 입력칸")
+    }
+
     var themeSection: some View {
         Section {
             KeyboardThemePreview(theme: selectedTheme)
