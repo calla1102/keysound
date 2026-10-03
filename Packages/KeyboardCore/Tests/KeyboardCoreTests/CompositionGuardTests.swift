@@ -107,7 +107,7 @@ final class CompositionGuardTests: XCTestCase {
     }
 
     func testContextEndingWithComposingStaysEvenIfDocumentEmptyFlag() {
-        XCTAssertFalse(CompositionGuard().isStale(composing: "요", before: "안녕하세요", documentEmpty: false, lastEditTime: 0, now: 1))
+        XCTAssertFalse(CompositionGuard().isStale(composing: "요", before: "안녕하세요", documentEmpty: true, lastEditTime: 0, now: 1))
     }
 
     func testOtherFieldFocusContextIsStale() {

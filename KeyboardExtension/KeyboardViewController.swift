@@ -205,10 +205,12 @@ final class KeyboardViewController: UIInputViewController {
     /// (문맥 nil 이면 유지, 마지막 편집 직후 유예 중엔 불일치를 믿지 않아 stale 아님으로 본다).
     private func compositionIsStale() -> Bool {
         guard automaton.isComposing else { return false }
+        let before = textDocumentProxy.documentContextBeforeInput
         return compositionGuard.isStale(
             composing: automaton.composing,
-            before: textDocumentProxy.documentContextBeforeInput,
-            documentEmpty: documentIsEmpty,
+            before: before,
+            // hasText·after 도 호스트 프록시 호출이라 문맥이 nil 일 때만 읽는다
+            documentEmpty: before == nil && documentIsEmpty,
             lastEditTime: lastEditTime,
             now: CACurrentMediaTime()
         )
