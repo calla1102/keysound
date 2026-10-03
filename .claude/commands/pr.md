@@ -40,6 +40,9 @@
    xcodegen generate
    xcodebuild -project Keysound.xcodeproj -scheme Keysound \
      -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+   # 앱 유닛 테스트(App/·Shared/·Tests/ 변경 시 필수, 시뮬레이터 없으면 build-for-testing 으로 대체)
+   xcodebuild -project Keysound.xcodeproj -scheme Keysound \
+     -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
    git diff --name-only "$(git merge-base origin/main HEAD)...HEAD" | sed -nE 's#^(Packages/[^/]+)/.*#\1#p' | sort -u
    # 위에서 나온 패키지마다
    (cd Packages/<패키지> && swift test)
@@ -58,6 +61,7 @@
    ## 검증
    - 시뮬레이터 빌드: 통과
    - swift test: <패키지> 통과 / 해당 없음
+   - 앱 유닛 테스트(KeysoundTests): 통과 / 해당 없음
    - 실기기: <확인한 것> / 미확인 — <확인해야 할 것>
 
    Closes #<이슈>
