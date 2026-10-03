@@ -389,12 +389,16 @@ final class KeyboardViewController: UIInputViewController {
         updateHorizontalPositions()
     }
 
-    /// `.horizontal` 팔레트 프리셋에서 각 키 중심의 가로 위치 비율(0...1)을 키에 알려 준다.
+    /// 가로·세로 그라데이션 팔레트 프리셋에서 각 키 중심의 위치 비율을 키에 알려 준다.
+    /// x 는 키보드 뷰 폭 기준, y 는 키 행 묶음(`rowsStack`) 높이 기준(0=맨 위 행).
     private func updateHorizontalPositions() {
-        guard theme.paletteMode == .horizontal, view.bounds.width > 0 else { return }
+        guard theme.paletteMode != .cycle, view.bounds.width > 0, rowsStack.bounds.height > 0 else { return }
         for key in keyButtons where key.bounds.width > 0 {
-            let center = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: view)
-            key.horizontalPosition = Double(center.x / view.bounds.width)
+            let x = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: view).x
+            let y = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: rowsStack).y
+            key.setPalettePosition(
+                x: Double(min(max(x / view.bounds.width, 0), 1)),
+                y: Double(min(max(y / rowsStack.bounds.height, 0), 1)))
         }
     }
 

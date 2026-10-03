@@ -3,6 +3,8 @@ import SwiftUI
 /// 자판 디자인 미리보기. 현재 라이트·다크 설정을 반영해 키 몇 줄만 그린다. 이미지 에셋 없이 코드로 글꼴·무늬·외곽선·입체감을 흉내 낸다.
 struct KeyboardThemePreview: View {
     let theme: KeyboardTheme
+    /// 선택 목록용 작은 미리보기 — 키 한 줄만 그린다
+    var compact = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var dark: Bool { colorScheme == .dark }
@@ -19,6 +21,8 @@ struct KeyboardThemePreview: View {
         var width: CGFloat?
         /// 키 중심의 가로 위치 비율(0...1) — 가로 그라데이션 팔레트용
         var position = 0.5
+        /// 세로 위치 비율(0=맨 위 줄) — 세로 그라데이션 팔레트용
+        var verticalPosition = 0.5
     }
 
     private var rows: [[Key]] {
@@ -27,17 +31,24 @@ struct KeyboardThemePreview: View {
             // 5칸 기준으로 위치를 잡는다(두 번째 줄은 마지막 칸이 ⌫)
             labels.enumerated().map { offset, label in
                 defer { index += 1 }
-                return Key(id: index, label: label, role: .character, characterIndex: index, position: (Double(offset) + 0.5) / 5)
+                return Key(id: index, label: label, role: .character, characterIndex: index, position: (Double(offset) + 0.5) / (compact ? 4 : 5))
             }
         }
-        let first = chars(["ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ"])
+        let first = chars(compact ? ["ㅂ", "ㅈ", "ㄷ", "ㄱ"] : ["ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ"])
         let second = chars(["ㅁ", "ㄴ", "ㅇ", "ㄹ"]) + [Key(id: 100, label: "⌫", role: .function, position: 0.9)]
         let third = [
             Key(id: 101, label: "⇧", role: .function, width: 44, position: 0.08),
             Key(id: 102, label: "스페이스", role: .space, position: 0.5),
             Key(id: 103, label: "⏎", role: .enter, width: 44, position: 0.92),
         ]
-        return [first, second, third]
+        // 세로 위치는 줄 가운데 기준
+        return (compact ? [first] : [first, second, third]).enumerated().map { r, row in
+            row.map { key in
+                var key = key
+                key.verticalPosition = (Double(r) + 0.5) / Double(compact ? 1 : 3)
+                return key
+            }
+        }
     }
 
     var body: some View {
@@ -50,9 +61,9 @@ struct KeyboardThemePreview: View {
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.top, compact ? 6 : 8)
+        .padding(.bottom, compact ? 8 : 10)
         .frame(maxWidth: .infinity)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .background {
@@ -72,15 +83,18 @@ struct KeyboardThemePreview: View {
         case .function: role = .function
         case .enter: role = .enter
         }
-        return theme.keyColor(role: role, pressed: false, look: look, position: key.position)
+        return theme.keyColor(role: role, pressed: false, look: look, position: theme.paletteMode == .vertical ? key.verticalPosition : key.position)
     }
 
     private func textColor(for key: Key) -> ThemeColor {
+        let role: KeyColorRole
         switch key.role {
-        case .character, .space: look.text
-        case .function: look.functionText
-        case .enter: look.enterText
+        case .character: role = .character(index: key.characterIndex)
+        case .space: role = .space
+        case .function: role = .function
+        case .enter: role = .enter
         }
+        return KeyboardTheme.textColor(role: role, in: look, keyColor: color(for: key))
     }
 
     /// 실제 키보드와 같은 크기 체계(글자 24·특수 12 / 시스템 22·16)
@@ -96,6 +110,7 @@ struct KeyboardThemePreview: View {
     private func keyView(_ key: Key) -> some View {
         let capsule = theme.keyShape == .capsule
         let shape = RoundedRectangle(cornerRadius: capsule ? 17 : theme.cornerRadius * 0.8)
+        let minHeight: CGFloat = compact ? 28 : 34
         let base = color(for: key)
         let relief = theme.relief
         let thickness = relief == .raised ? theme.sideThickness * 0.7 : 0
@@ -109,7 +124,7 @@ struct KeyboardThemePreview: View {
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .foregroundStyle(textColor(for: key).color)
-            .frame(maxWidth: key.width == nil ? .infinity : nil, minHeight: 34)
+            .frame(maxWidth: key.width == nil ? .infinity : nil, minHeight: minHeight)
             .frame(width: key.width)
             .background {
                 ZStack {

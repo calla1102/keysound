@@ -20,6 +20,13 @@ extension KeyboardTheme {
         case .outline: 10
         case .toffee: 13
         case .sherbet: 11
+        case .chocolate: 7
+        case .nightSky: 6
+        case .aurora: 9
+        case .primaryBlocks: 2
+        case .neonViolet: 6
+        case .brass: 4
+        case .pearl: 8
         case .rainbow: 8
         case .cottonCandy: 12
         case .roseTypewriter: 12
@@ -42,39 +49,74 @@ extension KeyboardTheme {
     var keyPattern: KeyPattern? {
         switch self {
         case .pixel: .mixed
-        case .biscuit: .dots
+        case .biscuit, .nightSky: .dots
         default: nil
         }
     }
 
     var patternScope: PatternScope {
-        self == .biscuit ? .all : .alternate
+        (self == .biscuit || self == .nightSky) ? .all : .alternate
     }
 
     /// 무늬 농담(alpha). nil 이면 무늬 기본값(체크 0.08·점 0.10)
     var patternInkAlpha: Double? {
-        self == .biscuit ? 0.15 : nil
+        switch self {
+        case .biscuit: 0.15
+        case .nightSky: 0.35
+        default: nil
+        }
     }
 
     var paletteMode: PaletteMode {
         switch self {
-        case .rainbow, .cottonCandy: .horizontal
+        case .rainbow, .cottonCandy, .aurora, .pearl: .horizontal
+        case .nightSky: .vertical
         default: .cycle
         }
     }
 
     var relief: KeyRelief {
         switch self {
-        case .milk, .toast, .toffee, .retro, .mono, .rainbow, .slateTypewriter, .biscuit: .raised
+        case .milk, .toast, .toffee, .retro, .mono, .rainbow, .slateTypewriter, .biscuit, .chocolate, .brass: .raised
         case .matcha, .strawberry, .blueberry, .sherbet, .cottonCandy: .dished
-        case .crystal, .soda, .roseTypewriter: .glass
-        case .classic, .pixel, .outline: .flat
+        case .crystal, .soda, .roseTypewriter, .aurora, .pearl: .glass
+        case .classic, .pixel, .outline, .nightSky, .primaryBlocks, .neonViolet: .flat
         }
     }
 
     /// `.raised` 측면 띠 두께(pt). 레트로는 두껍게.
     var sideThickness: Double {
         self == .retro ? 4 : 3
+    }
+
+    static let cottonCandyStops: [ThemeColor] = [
+        ThemeColor(1.0, 0.82, 0.88), ThemeColor(0.99, 0.98, 1.0), ThemeColor(0.80, 0.91, 0.99),
+    ]
+
+    static let sherbetStops: [ThemeColor] = [
+        ThemeColor(1.0, 0.96, 0.78), ThemeColor(0.84, 0.95, 0.76), ThemeColor(1.0, 0.85, 0.74), ThemeColor(0.80, 0.91, 0.98),
+    ]
+
+    static let nightSkyStops: [ThemeColor] = [
+        ThemeColor(0.10, 0.12, 0.30), ThemeColor(0.22, 0.14, 0.40), ThemeColor(0.36, 0.20, 0.50),
+    ]
+
+    static let auroraStops: [ThemeColor] = [
+        ThemeColor(1.0, 0.70, 0.85, alpha: 0.6), ThemeColor(0.78, 0.68, 0.98, alpha: 0.6), ThemeColor(0.65, 0.85, 1.0, alpha: 0.6),
+    ]
+
+    static let pearlStops: [ThemeColor] = [
+        ThemeColor(1.0, 0.96, 0.97, alpha: 0.75), ThemeColor(1, 1, 1, alpha: 0.75), ThemeColor(0.95, 0.97, 1.0, alpha: 0.75),
+    ]
+
+    static let pearlDarkStops: [ThemeColor] = [
+        ThemeColor(0.50, 0.46, 0.50, alpha: 0.6), ThemeColor(0.48, 0.48, 0.52, alpha: 0.6), ThemeColor(0.44, 0.48, 0.55, alpha: 0.6),
+    ]
+
+    /// 원색 블록 팔레트: `base`(흰 또는 검정) 사이사이에 빨강·파랑·노랑 키(순환 11칸)
+    static func primaryBlocksPalette(base: ThemeColor) -> [ThemeColor] {
+        let red = ThemeColor(0.85, 0.15, 0.15), blue = ThemeColor(0.15, 0.30, 0.75), yellow = ThemeColor(0.98, 0.82, 0.15)
+        return [base, base, base, red, base, base, blue, base, yellow, base, base]
     }
 
     /// 민트→연두→살구→분홍→라벤더→연하늘
@@ -191,12 +233,7 @@ extension KeyboardTheme {
                 functionKey: ThemeColor(0.98, 0.84, 0.72),
                 text: ThemeColor(0.30, 0.18, 0.10),
                 shadow: ThemeColor(0.40, 0.28, 0.15, alpha: 0.25),
-                characterKeyPalette: [
-                    ThemeColor(1.0, 0.96, 0.78),
-                    ThemeColor(0.84, 0.95, 0.76),
-                    ThemeColor(1.0, 0.85, 0.74),
-                    ThemeColor(0.80, 0.91, 0.98),
-                ])
+                characterKeyPalette: Self.sherbetStops)
         case .rainbow:
             ThemeAppearance(
                 characterKey: Self.rainbowStops[0],
@@ -206,11 +243,11 @@ extension KeyboardTheme {
                 characterKeyPalette: Self.rainbowStops)
         case .cottonCandy:
             ThemeAppearance(
-                characterKey: ThemeColor(1.0, 0.82, 0.88),
-                functionKey: ThemeColor(0.80, 0.91, 0.99),
+                characterKey: Self.cottonCandyStops[0],
+                functionKey: Self.cottonCandyStops[2],
                 text: ThemeColor(0.45, 0.45, 0.50),
                 shadow: ThemeColor(0.40, 0.40, 0.50, alpha: 0.20),
-                characterKeyPalette: [ThemeColor(1.0, 0.82, 0.88), ThemeColor(0.99, 0.98, 1.0), ThemeColor(0.80, 0.91, 0.99)])
+                characterKeyPalette: Self.cottonCandyStops)
         case .roseTypewriter:
             ThemeAppearance(
                 characterKey: ThemeColor(1.0, 0.72, 0.82, alpha: 0.70),
@@ -232,6 +269,60 @@ extension KeyboardTheme {
                 text: ThemeColor(0.30, 0.17, 0.08),
                 shadow: ThemeColor(0.35, 0.20, 0.08, alpha: 0.30),
                 border: ThemeBorder(color: ThemeColor(0.50, 0.30, 0.14), width: 1.5))
+        case .chocolate:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.97, 0.93, 0.85),
+                functionKey: ThemeColor(0.30, 0.20, 0.15),
+                text: ThemeColor(0.25, 0.15, 0.10),
+                shadow: ThemeColor(0.25, 0.15, 0.10, alpha: 0.30),
+                functionKeyText: ThemeColor(0.97, 0.93, 0.85))
+        case .nightSky:
+            // 라이트는 아주 조금 밝게. 점 무늬는 글자색(흰색) 기준이라 별처럼 보인다
+            ThemeAppearance(
+                characterKey: Self.nightSkyStops[0],
+                functionKey: Self.nightSkyStops[0].darkened(by: 0.08),
+                text: ThemeColor(white: 1),
+                shadow: nil,
+                characterKeyPalette: Self.nightSkyStops.map { $0.lightened(by: 0.05) })
+        case .aurora:
+            ThemeAppearance(
+                characterKey: Self.auroraStops[0],
+                functionKey: Self.auroraStops[1],
+                text: ThemeColor(0.30, 0.25, 0.45),
+                shadow: nil,
+                characterKeyPalette: Self.auroraStops)
+        case .primaryBlocks:
+            ThemeAppearance(
+                characterKey: ThemeColor(white: 1),
+                functionKey: ThemeColor(white: 0.90),
+                text: ThemeColor(white: 0),
+                shadow: nil,
+                border: ThemeBorder(color: ThemeColor(white: 0), width: 1.5),
+                characterKeyPalette: Self.primaryBlocksPalette(base: ThemeColor(white: 1)),
+                functionKeyText: ThemeColor(white: 0),
+                textOnDarkKey: ThemeColor(white: 1))
+        case .neonViolet:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.10, 0.08, 0.14),
+                functionKey: ThemeColor(0.16, 0.12, 0.22),
+                text: ThemeColor(0.78, 0.55, 1.0),
+                shadow: ThemeColor(0.60, 0.30, 1.0, alpha: 0.55),
+                shadowBlur: 6)
+        case .brass:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.78, 0.72, 0.55),
+                functionKey: ThemeColor(0.40, 0.32, 0.22),
+                text: ThemeColor(0.25, 0.18, 0.10),
+                shadow: ThemeColor(0.20, 0.14, 0.06, alpha: 0.50),
+                functionKeyText: ThemeColor(0.78, 0.72, 0.55))
+        case .pearl:
+            ThemeAppearance(
+                characterKey: Self.pearlStops[1],
+                functionKey: Self.pearlStops[0],
+                text: ThemeColor(0.40, 0.40, 0.48),
+                shadow: nil,
+                border: ThemeBorder(color: ThemeColor(white: 1, alpha: 0.9), width: 0.75),
+                characterKeyPalette: Self.pearlStops)
         }
     }
 
@@ -336,31 +427,26 @@ extension KeyboardTheme {
                 ])
         case .sherbet:
             ThemeAppearance(
-                characterKey: ThemeColor(0.50, 0.46, 0.30),
-                functionKey: ThemeColor(0.45, 0.33, 0.26),
+                characterKey: Self.sherbetStops[0].dimmed(),
+                functionKey: ThemeColor(0.98, 0.84, 0.72).dimmed(),
                 text: ThemeColor(1.0, 0.95, 0.88),
                 shadow: ThemeColor(white: 0, alpha: 0.4),
-                characterKeyPalette: [
-                    ThemeColor(0.50, 0.46, 0.30),
-                    ThemeColor(0.34, 0.46, 0.32),
-                    ThemeColor(0.52, 0.38, 0.30),
-                    ThemeColor(0.30, 0.42, 0.52),
-                ])
+                characterKeyPalette: Self.sherbetStops.map { $0.dimmed() })
         case .rainbow:
-            // 같은 색을 채도는 두고 밝기만 낮춘다
+            // HSB 로 색상은 두고 밝기만 낮추며 채도를 조금 올려 탁해지지 않게 한다
             ThemeAppearance(
-                characterKey: Self.rainbowStops[0].darkened(by: 0.45),
-                functionKey: Self.rainbowStops[2].darkened(by: 0.45),
+                characterKey: Self.rainbowStops[0].dimmed(),
+                functionKey: Self.rainbowStops[2].dimmed(),
                 text: ThemeColor(white: 1),
                 shadow: ThemeColor(white: 0, alpha: 0.4),
-                characterKeyPalette: Self.rainbowStops.map { $0.darkened(by: 0.45) })
+                characterKeyPalette: Self.rainbowStops.map { $0.dimmed() })
         case .cottonCandy:
             ThemeAppearance(
-                characterKey: ThemeColor(0.50, 0.34, 0.40),
-                functionKey: ThemeColor(0.30, 0.40, 0.52),
+                characterKey: Self.cottonCandyStops[0].dimmed(),
+                functionKey: Self.cottonCandyStops[2].dimmed(),
                 text: ThemeColor(0.92, 0.92, 0.96),
                 shadow: ThemeColor(white: 0, alpha: 0.4),
-                characterKeyPalette: [ThemeColor(0.50, 0.34, 0.40), ThemeColor(0.42, 0.42, 0.48), ThemeColor(0.30, 0.40, 0.52)])
+                characterKeyPalette: Self.cottonCandyStops.map { $0.dimmed() })
         case .roseTypewriter:
             ThemeAppearance(
                 characterKey: ThemeColor(0.55, 0.25, 0.38, alpha: 0.70),
@@ -383,6 +469,59 @@ extension KeyboardTheme {
                 text: ThemeColor(0.98, 0.90, 0.75),
                 shadow: ThemeColor(white: 0, alpha: 0.4),
                 border: ThemeBorder(color: ThemeColor(0.25, 0.14, 0.06), width: 1.5))
+        case .chocolate:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.36, 0.26, 0.20),
+                functionKey: ThemeColor(0.22, 0.14, 0.10),
+                text: ThemeColor(0.97, 0.93, 0.85),
+                shadow: ThemeColor(white: 0, alpha: 0.4))
+        case .nightSky:
+            ThemeAppearance(
+                characterKey: Self.nightSkyStops[0],
+                functionKey: Self.nightSkyStops[0].darkened(by: 0.08),
+                text: ThemeColor(white: 1),
+                shadow: nil,
+                characterKeyPalette: Self.nightSkyStops)
+        case .aurora:
+            ThemeAppearance(
+                characterKey: Self.auroraStops[0].dimmed().withAlpha(0.65),
+                functionKey: Self.auroraStops[1].dimmed().withAlpha(0.65),
+                text: ThemeColor(0.92, 0.90, 1.0),
+                shadow: nil,
+                characterKeyPalette: Self.auroraStops.map { $0.dimmed().withAlpha(0.65) })
+        case .primaryBlocks:
+            // 키는 검정·외곽선은 흰색, 원색은 그대로. 글자는 키 밝기로 자동 대비
+            ThemeAppearance(
+                characterKey: ThemeColor(white: 0),
+                functionKey: ThemeColor(white: 0.20),
+                text: ThemeColor(white: 0),
+                shadow: nil,
+                border: ThemeBorder(color: ThemeColor(white: 1), width: 1.5),
+                characterKeyPalette: Self.primaryBlocksPalette(base: ThemeColor(white: 0)),
+                functionKeyText: ThemeColor(white: 1),
+                textOnDarkKey: ThemeColor(white: 1))
+        case .neonViolet:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.10, 0.08, 0.14),
+                functionKey: ThemeColor(0.16, 0.12, 0.22),
+                text: ThemeColor(0.78, 0.55, 1.0),
+                shadow: ThemeColor(0.60, 0.30, 1.0, alpha: 0.85),
+                shadowBlur: 6)
+        case .brass:
+            ThemeAppearance(
+                characterKey: ThemeColor(0.40, 0.36, 0.26),
+                functionKey: ThemeColor(0.22, 0.17, 0.11),
+                text: ThemeColor(0.92, 0.85, 0.68),
+                shadow: ThemeColor(white: 0, alpha: 0.5),
+                functionKeyText: ThemeColor(0.92, 0.85, 0.68))
+        case .pearl:
+            ThemeAppearance(
+                characterKey: Self.pearlDarkStops[1],
+                functionKey: Self.pearlDarkStops[0],
+                text: ThemeColor(0.92, 0.92, 0.96),
+                shadow: nil,
+                border: ThemeBorder(color: ThemeColor(white: 1, alpha: 0.35), width: 0.75),
+                characterKeyPalette: Self.pearlDarkStops)
         }
     }
 }

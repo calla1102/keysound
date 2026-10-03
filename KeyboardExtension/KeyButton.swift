@@ -20,11 +20,22 @@ final class KeyButton: UIButton {
     private var reliefLayer: CAGradientLayer?
     private var laidOutBounds: CGRect = .zero
 
-    /// `.horizontal` 팔레트용 키 중심의 가로 위치 비율(0...1). 컨트롤러가 레이아웃 뒤에 넘긴다.
-    var horizontalPosition: Double? {
-        didSet {
-            guard theme.paletteMode == .horizontal, horizontalPosition != oldValue else { return }
-            updateAppearance()
+    /// 가로·세로 그라데이션 팔레트용 키 중심 위치 비율(x: 0=왼쪽, y: 0=맨 위 행, 모두 0...1). 컨트롤러가 레이아웃 뒤에 넘긴다.
+    private(set) var palettePosition: (x: Double, y: Double)?
+
+    func setPalettePosition(x: Double, y: Double) {
+        guard theme.paletteMode != .cycle else { return }
+        if let old = palettePosition, old.x == x, old.y == y { return }
+        palettePosition = (x, y)
+        updateAppearance()
+    }
+
+    /// 현재 팔레트 모드에서 보간에 쓸 위치
+    private var rampPosition: Double? {
+        switch theme.paletteMode {
+        case .cycle: nil
+        case .horizontal: palettePosition?.x
+        case .vertical: palettePosition?.y
         }
     }
 
@@ -83,9 +94,9 @@ final class KeyButton: UIButton {
 
     private var currentThemeColor: ThemeColor {
         let look = theme.appearance(dark: isDark)
-        if isHighlighted { return theme.keyColor(role: colorRole, pressed: true, look: look, position: horizontalPosition) }
-        if isEmphasized { return theme.keyColor(role: .space, pressed: false, look: look, position: horizontalPosition) }
-        return theme.keyColor(role: colorRole, pressed: false, look: look, position: horizontalPosition)
+        if isHighlighted { return theme.keyColor(role: colorRole, pressed: true, look: look, position: rampPosition) }
+        if isEmphasized { return theme.keyColor(role: .space, pressed: false, look: look, position: rampPosition) }
+        return theme.keyColor(role: colorRole, pressed: false, look: look, position: rampPosition)
     }
 
     /// 배경·그림자·외곽선·그라데이션을 현재 상태·라이트/다크에 맞게 칠한다. 레이어는 새로 만들지 않는다.
@@ -96,7 +107,7 @@ final class KeyButton: UIButton {
         let scale = traitCollection.displayScale
         let surface = theme.surfaceColor(base, look: look, tile: tile, scale: scale)
 
-        let textColor = KeyboardTheme.textColor(role: colorRole, in: look).uiColor
+        let textColor = KeyboardTheme.textColor(role: colorRole, in: look, keyColor: base).uiColor
         tintColor = textColor
         setTitleColor(textColor, for: .normal)
 

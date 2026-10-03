@@ -52,6 +52,50 @@ struct ThemeColor: Equatable {
             a.blue + (b.blue - a.blue) * f, alpha: a.alpha + (b.alpha - a.alpha) * f)
     }
 
+    /// 색상(0...1)·채도·밝기. 알파는 따로 둔다.
+    var hsb: (hue: Double, saturation: Double, brightness: Double) {
+        let mx = max(red, green, blue), mn = min(red, green, blue)
+        let d = mx - mn
+        guard d > 0 else { return (0, 0, mx) }
+        var h: Double
+        if mx == red { h = ((green - blue) / d).truncatingRemainder(dividingBy: 6) }
+        else if mx == green { h = (blue - red) / d + 2 }
+        else { h = (red - green) / d + 4 }
+        h /= 6
+        if h < 0 { h += 1 }
+        return (h, d / mx, mx)
+    }
+
+    init(hue: Double, saturation: Double, brightness: Double, alpha: Double = 1) {
+        let h = (hue - hue.rounded(.down)) * 6
+        let c = brightness * saturation
+        let x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1))
+        let m = brightness - c
+        let (r, g, b): (Double, Double, Double)
+        switch Int(h) {
+        case 0: (r, g, b) = (c, x, 0)
+        case 1: (r, g, b) = (x, c, 0)
+        case 2: (r, g, b) = (0, c, x)
+        case 3: (r, g, b) = (0, x, c)
+        case 4: (r, g, b) = (x, 0, c)
+        default: (r, g, b) = (c, 0, x)
+        }
+        self.init(r + m, g + m, b + m, alpha: alpha)
+    }
+
+    /// 다크용: 색상은 두고 밝기만 `brightness` 배로 낮추며, 탁해 보이지 않게 채도를 `saturationBoost` 배(최대 1)로 올린다.
+    func dimmed(brightness: Double = 0.55, saturationBoost: Double = 1.15) -> ThemeColor {
+        let c = hsb
+        return ThemeColor(
+            hue: c.hue, saturation: min(1, c.saturation * saturationBoost),
+            brightness: c.brightness * brightness, alpha: alpha)
+    }
+
+    /// 팔레트·강조 키의 눌림 색: 어둡게 하되, 이미 거의 검정이면 밝게 해 눌림이 보이게 한다.
+    func pressedDarkened() -> ThemeColor {
+        luminance < 0.15 ? lightened(by: 0.18) : darkened()
+    }
+
     /// 눌렀을 때 색. 밝은 색은 어둡게, 어두운 색은 밝게 하고, 반투명이면 조금 더 짙게(불투명 쪽으로) 한다.
     func pressedVariant() -> ThemeColor {
         let shifted = luminance > 0.4 ? darkened() : lightened()
@@ -124,6 +168,8 @@ enum PaletteMode: Equatable {
     case cycle
     /// 키의 가로 위치(0...1)에 따라 팔레트를 선형 보간(왼쪽→오른쪽 그라데이션)
     case horizontal
+    /// 키의 세로 위치(0=맨 위 행 ... 1=맨 아래 행)에 따라 보간(위→아래 그라데이션)
+    case vertical
 }
 
 /// 키 윤곽
@@ -174,6 +220,8 @@ struct ThemeAppearance: Equatable {
     /// 특수 키·엔터 키 글자색. nil 이면 `text`(색이 `text` 와 대비가 안 되는 프리셋만 지정)
     var functionKeyText: ThemeColor?
     var accentKeyText: ThemeColor?
+    /// 글자 키 색의 밝기가 0.5 미만일 때만 쓰는 글자색(팔레트 색마다 대비를 자동으로 고른다). nil 이면 항상 `text`.
+    var textOnDarkKey: ThemeColor?
 
     init(
         characterKey: ThemeColor,
@@ -187,7 +235,8 @@ struct ThemeAppearance: Equatable {
         characterKeyPalette: [ThemeColor] = [],
         accentKey: ThemeColor? = nil,
         functionKeyText: ThemeColor? = nil,
-        accentKeyText: ThemeColor? = nil
+        accentKeyText: ThemeColor? = nil,
+        textOnDarkKey: ThemeColor? = nil
     ) {
         self.characterKey = characterKey
         self.functionKey = functionKey
@@ -201,6 +250,7 @@ struct ThemeAppearance: Equatable {
         self.accentKey = accentKey
         self.functionKeyText = functionKeyText
         self.accentKeyText = accentKeyText
+        self.textOnDarkKey = textOnDarkKey
     }
 
     /// 글자 키 `index` 번째의 색. 팔레트가 있으면 순환한다.
@@ -212,11 +262,11 @@ struct ThemeAppearance: Equatable {
 
     /// 글자 키 `index` 번째의 눌림 색. 팔레트 색은 그 색을 어둡게 한 값이다.
     func characterPressedColor(at index: Int) -> ThemeColor {
-        characterKeyPalette.isEmpty ? characterKeyPressed : characterColor(at: index).darkened()
+        characterKeyPalette.isEmpty ? characterKeyPressed : characterColor(at: index).pressedDarkened()
     }
 
     var enterKey: ThemeColor { accentKey ?? functionKey }
-    var enterKeyPressed: ThemeColor { accentKey?.darkened() ?? functionKeyPressed }
+    var enterKeyPressed: ThemeColor { accentKey?.pressedDarkened() ?? functionKeyPressed }
     var functionText: ThemeColor { functionKeyText ?? text }
     var enterText: ThemeColor { accentKeyText ?? functionKeyText ?? text }
 }
@@ -245,6 +295,13 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
     case roseTypewriter
     case slateTypewriter
     case biscuit
+    case chocolate
+    case nightSky
+    case aurora
+    case primaryBlocks
+    case neonViolet
+    case brass
+    case pearl
 
     static let `default`: KeyboardTheme = .classic
 
@@ -276,6 +333,13 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         case .roseTypewriter: "분홍 타자기"
         case .slateTypewriter: "청회 타자기"
         case .biscuit: "비스킷"
+        case .chocolate: "초콜릿"
+        case .nightSky: "밤하늘"
+        case .aurora: "오로라"
+        case .primaryBlocks: "원색 블록"
+        case .neonViolet: "네온 보라"
+        case .brass: "놋쇠"
+        case .pearl: "진주"
         }
     }
 
@@ -300,6 +364,13 @@ enum KeyboardTheme: String, CaseIterable, Identifiable {
         case .roseTypewriter: "비치는 분홍 유리 알약 키"
         case .slateTypewriter: "청회색 타자기 키에 따뜻한 불빛이 번지는 모양"
         case .biscuit: "점 구멍이 난 황갈색 비스킷 키"
+        case .chocolate: "크림색 키에 진한 초콜릿색 특수 키"
+        case .nightSky: "위에서 아래로 남색에서 보라로 깊어지는 별 무늬 키"
+        case .aurora: "분홍·라벤더·하늘색이 비치며 번지는 유리 키"
+        case .primaryBlocks: "흰 블록에 빨강·파랑·노랑이 섞인 각진 키"
+        case .neonViolet: "검은 키에 보라 네온 글자와 빛 번짐"
+        case .brass: "올리브 베이지 키에 짙은 갈색 특수 키"
+        case .pearl: "진주처럼 은은하게 비치는 흰 유리 키"
         }
     }
 
@@ -317,9 +388,10 @@ enum KeyColorRole: Equatable {
 }
 
 extension KeyboardTheme {
-    /// 키 색. `position` 은 키 중심의 가로 위치 비율(0...1)이고 `.horizontal` 팔레트에서만 쓴다(모르면 0.5).
+    /// 키 색. `position` 은 팔레트 보간 위치(0...1)다. `.horizontal` 이면 키 중심 x 비율, `.vertical` 이면 y 비율이며
+    /// 순환 팔레트에서는 쓰지 않는다(모르면 0.5).
     func keyColor(role: KeyColorRole, pressed: Bool, look: ThemeAppearance, position: Double? = nil) -> ThemeColor {
-        if paletteMode == .horizontal, !look.characterKeyPalette.isEmpty {
+        if paletteMode != .cycle, !look.characterKeyPalette.isEmpty {
             let ramp = ThemeColor.interpolate(look.characterKeyPalette, at: position ?? 0.5)
             let base: ThemeColor
             switch role {
@@ -327,7 +399,7 @@ extension KeyboardTheme {
             case .function: base = ramp.darkened(by: 0.08)
             case .enter: base = look.accentKey ?? ramp.darkened(by: 0.08)
             }
-            return pressed ? base.darkened() : base
+            return pressed ? base.pressedDarkened() : base
         }
         switch role {
         case .character(let index):
@@ -338,9 +410,11 @@ extension KeyboardTheme {
         }
     }
 
-    static func textColor(role: KeyColorRole, in look: ThemeAppearance) -> ThemeColor {
+    /// 글자색. `keyColor` 를 주면 `textOnDarkKey` 가 있는 프리셋은 어두운 키에서 그 색으로 바꾼다.
+    static func textColor(role: KeyColorRole, in look: ThemeAppearance, keyColor: ThemeColor? = nil) -> ThemeColor {
         switch role {
-        case .character, .space: look.text
+        case .character, .space:
+            if let dark = look.textOnDarkKey, let keyColor, keyColor.luminance < 0.5 { dark } else { look.text }
         case .function: look.functionText
         case .enter: look.enterText
         }

@@ -47,8 +47,8 @@ final class KeyboardThemeTests: XCTestCase {
         }
     }
 
-    func testNineteenPresetsWithClassicFirst() {
-        XCTAssertEqual(KeyboardTheme.allCases.count, 19)
+    func testTwentySixPresetsWithClassicFirst() {
+        XCTAssertEqual(KeyboardTheme.allCases.count, 26)
         XCTAssertEqual(KeyboardTheme.allCases.first, .classic)
     }
 
@@ -155,5 +155,74 @@ final class KeyboardThemeTests: XCTestCase {
             XCTAssertFalse(t.lightAppearance.characterKeyPalette.isEmpty)
             XCTAssertFalse(t.darkAppearance.characterKeyPalette.isEmpty)
         }
+    }
+
+    func testVerticalPaletteUsesVerticalPosition() {
+        let theme = KeyboardTheme.nightSky
+        XCTAssertEqual(theme.paletteMode, .vertical)
+        let look = theme.darkAppearance
+        let top = theme.keyColor(role: .character(index: 0), pressed: false, look: look, position: 0)
+        let bottom = theme.keyColor(role: .character(index: 0), pressed: false, look: look, position: 1)
+        XCTAssertEqual(top, look.characterKeyPalette.first)
+        XCTAssertEqual(bottom, look.characterKeyPalette.last)
+        XCTAssertEqual(theme.keyColor(role: .function, pressed: false, look: look, position: 0), top.darkened(by: 0.08))
+        XCTAssertEqual(theme.keyPattern, .dots)
+        XCTAssertEqual(theme.patternScope, .all)
+        XCTAssertEqual(theme.patternInkAlpha, 0.35)
+    }
+
+    func testHSBRoundTripAndDimmedKeepsHueAndRaisesSaturation() {
+        let c = ThemeColor(0.70, 0.92, 0.82)
+        let hsb = c.hsb
+        let back = ThemeColor(hue: hsb.hue, saturation: hsb.saturation, brightness: hsb.brightness)
+        XCTAssertEqual(back.red, c.red, accuracy: 1e-9)
+        XCTAssertEqual(back.green, c.green, accuracy: 1e-9)
+        XCTAssertEqual(back.blue, c.blue, accuracy: 1e-9)
+        let d = ThemeColor(0.70, 0.92, 0.82, alpha: 0.6).dimmed(brightness: 0.5, saturationBoost: 1.2)
+        XCTAssertEqual(d.hsb.hue, hsb.hue, accuracy: 1e-9)
+        XCTAssertEqual(d.hsb.brightness, hsb.brightness * 0.5, accuracy: 1e-9)
+        XCTAssertGreaterThan(d.hsb.saturation, hsb.saturation)
+        XCTAssertEqual(d.alpha, 0.6, accuracy: 1e-9)
+        // 흰색·회색은 채도 0 그대로
+        XCTAssertEqual(ThemeColor(white: 1).dimmed().hsb.saturation, 0)
+    }
+
+    func testRainbowDarkKeepsSaturationNotMuddy() {
+        for (light, dark) in zip(KeyboardTheme.rainbow.lightAppearance.characterKeyPalette, KeyboardTheme.rainbow.darkAppearance.characterKeyPalette) {
+            XCTAssertGreaterThanOrEqual(dark.hsb.saturation, light.hsb.saturation)
+            XCTAssertLessThan(dark.hsb.brightness, light.hsb.brightness)
+        }
+    }
+
+    func testAutoContrastTextFollowsKeyLuminance() {
+        let look = KeyboardTheme.primaryBlocks.lightAppearance
+        let red = look.characterKeyPalette[3], white = look.characterKeyPalette[0], yellow = look.characterKeyPalette[8]
+        XCTAssertEqual(KeyboardTheme.textColor(role: .character(index: 3), in: look, keyColor: red), ThemeColor(white: 1))
+        XCTAssertEqual(KeyboardTheme.textColor(role: .character(index: 0), in: look, keyColor: white), ThemeColor(white: 0))
+        XCTAssertEqual(KeyboardTheme.textColor(role: .character(index: 8), in: look, keyColor: yellow), ThemeColor(white: 0))
+        // 다크: 검정 키는 흰 글자
+        let dark = KeyboardTheme.primaryBlocks.darkAppearance
+        XCTAssertEqual(KeyboardTheme.textColor(role: .character(index: 0), in: dark, keyColor: dark.characterKeyPalette[0]), ThemeColor(white: 1))
+        // 자동 대비가 없는 프리셋은 항상 text
+        let milk = KeyboardTheme.milk.lightAppearance
+        XCTAssertEqual(KeyboardTheme.textColor(role: .character(index: 0), in: milk, keyColor: ThemeColor(white: 0)), milk.text)
+    }
+
+    func testBlackKeyPressedIsVisibleAndNewPresetsFallBackOnUnknown() {
+        XCTAssertGreaterThan(ThemeColor(white: 0).pressedDarkened().red, 0)
+        let look = KeyboardTheme.primaryBlocks.darkAppearance
+        XCTAssertNotEqual(look.characterPressedColor(at: 0), look.characterColor(at: 0))
+        XCTAssertEqual(KeyboardTheme(storedValue: "nightSky"), .nightSky)
+        XCTAssertEqual(KeyboardTheme(storedValue: "nightsky"), .default)
+    }
+
+    func testNeonAndBrassStructure() {
+        XCTAssertEqual(KeyboardTheme.neonViolet.lightAppearance.shadowBlur, 6)
+        XCTAssertEqual(KeyboardTheme.neonViolet.darkAppearance.shadow?.alpha, 0.85)
+        XCTAssertEqual(KeyboardTheme.brass.relief, .raised)
+        XCTAssertEqual(KeyboardTheme.brass.sideThickness, 3)
+        XCTAssertEqual(KeyboardTheme.primaryBlocks.cornerRadius, 2)
+        XCTAssertEqual(KeyboardTheme.pearl.paletteMode, .horizontal)
+        XCTAssertEqual(KeyboardTheme.aurora.darkAppearance.characterKeyPalette.map(\.alpha), [0.65, 0.65, 0.65])
     }
 }

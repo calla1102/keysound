@@ -94,30 +94,39 @@ extension ContentView {
         Section {
             KeyboardThemePreview(theme: selectedTheme)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            ForEach(KeyboardTheme.allCases) { theme in
-                Button {
-                    // 키보드는 다시 열릴 때 선택을 읽으므로 내려 둔다
-                    isTestFieldFocused = false
-                    selectedTheme = theme
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(theme.displayName)
-                                .foregroundStyle(.primary)
-                            Text(theme.summary)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+            // 프리셋이 많아 2열 그리드로 보여 준다(칸마다 키 한 줄 미리보기 + 이름)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(KeyboardTheme.allCases) { theme in
+                    Button {
+                        // 키보드는 다시 열릴 때 선택을 읽으므로 내려 둔다
+                        isTestFieldFocused = false
+                        selectedTheme = theme
+                    } label: {
+                        VStack(spacing: 4) {
+                            KeyboardThemePreview(theme: theme, compact: true)
+                            HStack(spacing: 4) {
+                                Text(theme.displayName)
+                                    .font(.footnote)
+                                    .foregroundStyle(.primary)
+                                if theme == selectedTheme {
+                                    Image(systemName: "checkmark")
+                                        .font(.footnote)
+                                        .foregroundStyle(.tint)
+                                }
+                            }
                         }
-                        Spacer()
-                        if theme == selectedTheme {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
+                        .padding(4)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(theme == selectedTheme ? Color.accentColor : .clear, lineWidth: 2)
                         }
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(theme.displayName), \(theme.summary)")
+                    .accessibilityAddTraits(theme == selectedTheme ? .isSelected : [])
                 }
-                .accessibilityLabel("\(theme.displayName), \(theme.summary)")
-                .accessibilityAddTraits(theme == selectedTheme ? .isSelected : [])
             }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         } header: {
             Text("자판 디자인")
         } footer: {
