@@ -64,20 +64,9 @@ struct ContentView: View {
                     Label("「전체 접근 허용」은 필요 없습니다. 입력한 내용은 어디로도 전송되지 않습니다.", systemImage: "lock")
                 }
 
-                Section("출처") {
-                    // 자세한 파일별 출처는 ThirdParty/CREDITS.md. CC BY 는 표기가 의무라 무접점·멤브레인·얇은 무선 키보드는 반드시 남긴다.
-                    Text("무접점 소리: MakotoHiramatsu 「Press and Click FREE」(makotohiramatsu.itch.io), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Text("멤브레인 소리: Geoff Bremner(Geoff-Bremner-Audio) 「HP Office Keyboard」(freesound.org/s/705787), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Text("얇은 무선 키보드 소리: SoundsLikeFoley 「Typing on Logitech K811 keyboard」(freesound.org/people/SoundsLikeFoley/sounds/421031), CC BY 4.0 (creativecommons.org/licenses/by/4.0). 원본을 키 단위로 잘라 음량을 조정함")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Text("적축·갈축·청축·흑축·버클링 스프링·노트북·도각 리니어·구형 데스크탑·전동 타자기 소리: Freesound 의 Sadiquecat · Foxfire- · UberBosser · el_boss · SamsterBirdies · justamudkip · Techrul · suckmadeck · secretmojo 녹음, CC0")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                Section {
+                    // 파일별 출처는 ThirdParty/CREDITS.md, 화면 데이터는 SoundCredits.swift
+                    NavigationLink("출처 및 라이선스") { CreditsView() }
                 }
             }
             .scrollDismissesKeyboard(.immediately)

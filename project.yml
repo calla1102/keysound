@@ -61,6 +61,22 @@ targets:
     dependencies:
       - target: KeysoundKeyboard
         embed: true
+    scheme:
+      testTargets:
+        - KeysoundTests
+
+  # 호스트 앱 없는 로직 테스트 — 테스트할 Shared 파일만 직접 컴파일한다(추가하면 sources 에 한 줄)
+  KeysoundTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests/KeysoundTests
+      - Shared/SwitchSound.swift
+      - App/SoundCredits.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.minnnj.keysound.tests
 
   KeysoundKeyboard:
     type: app-extension
